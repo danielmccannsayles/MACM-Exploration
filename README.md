@@ -1,3 +1,6 @@
+
+## Copied from https://github.com/bin123apple/MACM, paper: https://arxiv.org/abs/2404.04735. Want to explore how it works
+
 # MACM
 
 ## Introdcution
