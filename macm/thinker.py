@@ -1,9 +1,9 @@
 import re
-from utils.gpt_robots import generate_from_thinker
+from utils.gpt_assistants import generate_from_assistant
 from prompt.prompts import *
 
 
-def Analysis_conditions(question):
+def Analysis_conditions(question, assistant, thread):
     """
     ask GPT to determine the conditions and objectives of a question.
     Input:
@@ -18,9 +18,7 @@ def Analysis_conditions(question):
     }
     messages.append(message)
     # answer = generate_from_GPT(messages, max_tokens = 256, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    answer = generate_from_thinker(
-        messages, max_tokens=256, model="gpt-4-1106-preview", temperature=0.7, n=1
-    )
+    answer = generate_from_assistant(messages, assistant, thread, "thinker")
     parts = answer.split("Objective:")
     conditions_text = parts[0].replace("Conditions:", "").strip()
     conditions = re.findall(r"\d\.\s*(.*)", conditions_text)
@@ -37,7 +35,7 @@ def Analysis_conditions(question):
 
 
 # TODO: Daniel - I don't think this is used at all. Remove it
-def Fix_conditions(question, Initial_conditions):
+def Fix_conditions(question, Initial_conditions, assistant, thread):
     """
     ask GPT to fix the wrong initial condition of a question.
     Input:
@@ -54,13 +52,11 @@ def Fix_conditions(question, Initial_conditions):
     }
     messages.append(message)
     # answer = generate_from_GPT(messages, max_tokens = 256, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    fixed_condition = generate_from_thinker(
-        messages, max_tokens=256, model="gpt-4-1106-preview", temperature=0.7, n=1
-    )
+    fixed_condition = generate_from_assistant(messages, assistant, thread, "thinker")
     return fixed_condition
 
 
-def Think_thoughts(conditions, objectives):
+def Think_thoughts(conditions, objectives, assistant, thread):
     """
     Ask GPT to think about other condtions.
     Input:
@@ -85,9 +81,7 @@ def Think_thoughts(conditions, objectives):
     message = {"role": "user", "content": Summarize_Answer}
     messages.append(message)
     # new_condition = generate_from_GPT(messages, max_tokens = 128, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    new_condition = generate_from_thinker(
-        messages, max_tokens=128, model="gpt-4-1106-preview", temperature=0.7, n=1
-    )
+    new_condition = generate_from_assistant(messages, assistant, thread, "thinker")
     if new_condition:
         condition = [new_condition.strip()]  # Single condition situation
         # pattern = r"Based on .+? we can get: .+? Reason: .+?\." # Multiple conditions situation
@@ -99,7 +93,7 @@ def Think_thoughts(conditions, objectives):
     return condition
 
 
-def Think_Steps(condition_from_thinker, objective_from_thinker):
+def Think_Steps(condition_from_thinker, objective_from_thinker, assistant, thread):
     """
     ask GPT to think about other condtions.
     Input:
@@ -122,7 +116,5 @@ def Think_Steps(condition_from_thinker, objective_from_thinker):
     }
     messages.append(message)
     # steps = generate_from_GPT(messages, max_tokens = 256, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    steps = generate_from_thinker(
-        messages, max_tokens=256, model="gpt-4-1106-preview", temperature=0.7, n=1
-    )
+    steps = generate_from_assistant(messages, assistant, thread, "thinker")
     return steps

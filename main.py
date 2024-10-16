@@ -7,9 +7,10 @@ from collections import Counter
 from macm.executor import Execute_steps
 from macm.judge import Judge_statement, Judge_answer, Judge_condition
 from macm.thinker import Analysis_conditions, Think_thoughts, Think_Steps
+from utils.gpt_assistants import create_agents_and_thread
 
 
-def check_condition(question, condition, n):
+def check_condition(question, condition, n, assistant, thread):
     """
     Use several Judges to check the statement
     Input:
@@ -18,12 +19,12 @@ def check_condition(question, condition, n):
     True/False (bool)
     """
     for _ in range(n):
-        if Judge_condition(question, condition).strip() == "False":
+        if Judge_condition(question, condition, assistant, thread).strip() == "False":
             return False
     return True
 
 
-def check_statement(conditions, statement, n):
+def check_statement(conditions, statement, n, assistant, thread):
     """
     Use several Judges to check the statement
     Input:
@@ -32,13 +33,13 @@ def check_statement(conditions, statement, n):
     True/False (bool)
     """
     for _ in range(n):
-        answer = Judge_statement(conditions, statement)
+        answer = Judge_statement(conditions, statement, assistant, thread)
         if "False" in answer or "false" in answer:
             return False
     return True
 
 
-def check_answer(conditions, statement):
+def check_answer(conditions, statement, assistant, thread):
     """
     Use several Judges to check the answer
     Input:
@@ -46,15 +47,15 @@ def check_answer(conditions, statement):
     Output:
     True/False (bool)
     """
-    if_got_answer = Judge_answer(conditions, statement)
+    if_got_answer = Judge_answer(conditions, statement, assistant, thread)
     if "False" in if_got_answer or "false" in if_got_answer:
         return False
     return True
 
 
-def check_if_got_answer(conditions, statement, n):
+def check_if_got_answer(conditions, statement, n, assistant, thread):
     for _ in range(n):
-        if check_answer(conditions, statement) == False:
+        if check_answer(conditions, statement, assistant, thread) == False:
             return False
     return True
 
@@ -67,9 +68,7 @@ def main(question, times, n, min_voters, max_voters):
     Output:
     final answer (Str)
     """
-    possible_answers = []
-
-    # Daniel documentation
+    ### Documentation
 
     # In a larger while statment. We add a voter count each time. We keep going until we hit the min_voters
 
@@ -87,6 +86,14 @@ def main(question, times, n, min_voters, max_voters):
     # how does the voting work? I think when it gets to the end (of inside the while loop), if its over the min voters
     # it sets tie to true, and it runs again. It can run 2 more times. This is very obfuscated and annoying
 
+    possible_answers = []
+
+    # Create the agents
+    thinker_assistant, executor_assistant, judge_assistant, thread = (
+        create_agents_and_thread()
+    )
+
+    ### The actual coding
     try:
         voter_count = 0
         tie = True
@@ -95,7 +102,9 @@ def main(question, times, n, min_voters, max_voters):
         while tie or voter_count < min_voters:
             voter_count += 1
             print(f"\n# {voter_count} Thinker is analyzing the question...")
-            conditions, objectives = Analysis_conditions(question)
+            conditions, objectives = Analysis_conditions(
+                question, thinker_assistant, thread
+            )
             Initial_condition_numbers = len(
                 conditions
             )  # This line will be used for the $while$ mode
@@ -104,11 +113,15 @@ def main(question, times, n, min_voters, max_voters):
             # while len(conditions) - Initial_condition_numbers <= times:
             for time in range(times):  # Try to reduce the LLM queries.
                 print(f"\n# {voter_count} Thinker is thinking new thoughts...")
-                unchecked_conditions = Think_thoughts(conditions, objectives)
+                unchecked_conditions = Think_thoughts(
+                    conditions, objectives, thinker_assistant, thread
+                )
                 checked_conditions = []
                 for unchecked_condition in unchecked_conditions:
                     print(f"\n# {voter_count} Judge is checking conditions...")
-                    if check_statement(conditions, unchecked_condition, n):
+                    if check_statement(
+                        conditions, unchecked_condition, n, judge_assistant, thread
+                    ):
                         start = unchecked_condition.find("we can get: ")
                         if start != -1:
                             unchecked_condition = unchecked_condition[
@@ -119,14 +132,18 @@ def main(question, times, n, min_voters, max_voters):
                             ]
                         checked_conditions.append(unchecked_condition)
                 conditions = conditions + checked_conditions
-                if_got_answer = check_if_got_answer(conditions, objectives, 1)
+                if_got_answer = check_if_got_answer(
+                    conditions, objectives, 1, judge_assistant, thread
+                )
                 if if_got_answer:
                     break
             print(f"\n# {voter_count} thinker is thinking steps...")
-            steps = Think_Steps(conditions, objectives)
+            steps = Think_Steps(conditions, objectives, thinker_assistant, thread)
 
             print(f"\n# {voter_count} Executor is trying to calculate the answer...")
-            final_answer = Execute_steps(conditions, objectives, steps)
+            final_answer = Execute_steps(
+                conditions, objectives, steps, executor_assistant, thread
+            )
 
             # Achieve one potiential answer
             Answer = re.search(r"\\boxed\{(.*)(?=\})", final_answer)
@@ -156,9 +173,9 @@ def main(question, times, n, min_voters, max_voters):
 
 if __name__ == "__main__":
     n = 1  # verification times
-    times = 1  # The upper limit of the mining times
-    min_voters = 1  # min number of voters
-    max_voters = 2  # max number of voters
+    times = 5  # The upper limit of the mining times
+    min_voters = 5  # min number of voters
+    max_voters = 7  # max number of voters
     question = "How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?"  # Input your own question
 
     main(

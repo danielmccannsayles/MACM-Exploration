@@ -1,7 +1,7 @@
 import openai
 import json
 from utils.secret_key import OPENAI_KEY
-from utils.gpt_robots import log_messages
+from utils.helpers import log_messages
 
 client = openai.OpenAI(api_key=OPENAI_KEY)
 
@@ -32,7 +32,9 @@ def test_gpt(assistant, thread, message):
             )
             # Have to get data and then do this annoying thing
             run_steps_data = [step.model_dump() for step in run_steps.data]
-            # log_messages(all_messages, "test", run_steps_data) #TODO: uncomment logging
+            log_messages(
+                all_messages, "test", run_steps_data
+            )  # TODO: uncomment logging
 
             try:
                 Assistant_response = all_messages.data[0].content[0].text.value
@@ -52,10 +54,9 @@ def test_gpt(assistant, thread, message):
     return Assistant_response
 
 
-#### Testing out persistent threads
-# New assistant
+#### Lets see if using the same thread w/o deleting can avoid making new code interpreter sessions. We will use gpt-4o to get a new slate to test
 assistant = client.beta.assistants.create(
-    model="gpt-4-1106-preview",
+    model="gpt-4o",
     instructions="""You are a coding assistant. Use the code interpreter and solve the question""",
     name="Test of Persistence",
     tools=[{"type": "code_interpreter"}],
@@ -76,21 +77,37 @@ with open("./output/test.txt", "a") as f:
     f.write(json.dumps(message_list, indent=4))
     f.write("END \n\n\n")
 
-### Lets try and delete all the messages
-for message in message_list:
-    id = message.get("id")
-    print(id)
-
-    client.beta.threads.messages.delete(
-        message_id=id,
-        thread_id=thread.id,
-    )
 
 ### Second question
 answer = test_gpt(
     assistant,
     thread,
     "Write a python program to solve (x-2)/(x-3) for its roots. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
+)
+thread_messages = client.beta.threads.messages.list(thread.id)
+message_list = [message.model_dump() for message in thread_messages.data]
+with open("./output/test.txt", "a") as f:
+    f.write(json.dumps(message_list, indent=4))
+    f.write("END \n\n\n")
+
+
+### Third question
+answer = test_gpt(
+    assistant,
+    thread,
+    "Write a python program to implement a hashing algorithm and hash the string 'test-hash' . Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
+)
+thread_messages = client.beta.threads.messages.list(thread.id)
+message_list = [message.model_dump() for message in thread_messages.data]
+with open("./output/test.txt", "a") as f:
+    f.write(json.dumps(message_list, indent=4))
+    f.write("END \n\n\n")
+
+### Fourth question
+answer = test_gpt(
+    assistant,
+    thread,
+    "Write a python program to count backwards from 100 to 0, only returning the even numbers. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
 )
 thread_messages = client.beta.threads.messages.list(thread.id)
 message_list = [message.model_dump() for message in thread_messages.data]
