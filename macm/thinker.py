@@ -58,6 +58,8 @@ def Fix_conditions(question, Initial_conditions, assistant, thread):
 
 def Think_thoughts(conditions, objectives, assistant, thread):
     """
+    **Uses code interpreter**
+
     Ask GPT to think about other condtions.
     Input:
     conditions and objective return from Analysis_conditions (List, List)
@@ -81,7 +83,9 @@ def Think_thoughts(conditions, objectives, assistant, thread):
     message = {"role": "user", "content": Summarize_Answer}
     messages.append(message)
     # new_condition = generate_from_GPT(messages, max_tokens = 128, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    new_condition = generate_from_assistant(messages, assistant, thread, "thinker")
+    new_condition = generate_from_assistant(
+        messages, assistant, thread, "thinker (code)"
+    )
     if new_condition:
         condition = [new_condition.strip()]  # Single condition situation
         # pattern = r"Based on .+? we can get: .+? Reason: .+?\." # Multiple conditions situation

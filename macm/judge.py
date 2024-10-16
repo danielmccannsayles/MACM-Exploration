@@ -24,6 +24,8 @@ def Judge_condition(question, condition, assistant, thread):
 
 def Judge_statement(Known_condtions, condition_from_thinker, assistant, thread):
     """
+    **Uses code interpreter**
+
     ask GPT to Judge the thoughts from the thinker
     Input:
     Known_condtions, Condition from the thinker (List, Str)
@@ -44,7 +46,7 @@ def Judge_statement(Known_condtions, condition_from_thinker, assistant, thread):
     messages.append(message)
     message = {"role": "user", "content": T_or_F_prompt}
     messages.append(message)
-    T_or_F = generate_from_assistant(messages, assistant, thread, "judge")
+    T_or_F = generate_from_assistant(messages, assistant, thread, "judge (code)")
     return T_or_F
 
 

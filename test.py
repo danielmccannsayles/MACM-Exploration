@@ -54,15 +54,52 @@ def test_gpt(assistant, thread, message):
     return Assistant_response
 
 
-#### Lets see if using the same thread w/o deleting can avoid making new code interpreter sessions. We will use gpt-4o to get a new slate to test
+def delete_messages(thread, dummy_id):
+    thread_messages = client.beta.threads.messages.list(thread.id)
+    message_list = [message.model_dump() for message in thread_messages.data]
+
+    for message in message_list:
+        id = message.get("id")
+
+        # Avoid deleting dummy id
+        if not id == dummy_id:
+            client.beta.threads.messages.delete(
+                message_id=id,
+                thread_id=thread.id,
+            )
+
+
+## How can we keep the same thread while deleting things? Let's try adding a dummy thread message and deleting all others
+## This dummy mesage works but it makes new sessions when its broken up by something not using the sessions
+## Let's see if different assistants also cause it to make new sessions
+
 assistant = client.beta.assistants.create(
     model="gpt-4o",
     instructions="""You are a coding assistant. Use the code interpreter and solve the question""",
     name="Test of Persistence",
     tools=[{"type": "code_interpreter"}],
 )
-# Start a thread
-thread = client.beta.threads.create()
+# Start a thread w/ a dummy message
+thread = client.beta.threads.create(
+    messages=[{"role": "user", "content": "Please answer the following"}],
+)
+
+# Get the dummy message id
+thread_messages = client.beta.threads.messages.list(thread.id)
+message_list = [message.model_dump() for message in thread_messages.data]
+dummy_id = message_list[0].get("id")
+
+
+# Trying out second assistant - hopefully on diff thread won't interrupt
+assistant_2 = client.beta.assistants.create(
+    model="gpt-4o",
+    instructions="""You are a coding assistant. Use the code interpreter and solve the question""",
+    name="# 2",
+)
+# Start a thread w/ a dummy message
+thread_2 = client.beta.threads.create(
+    messages=[{"role": "user", "content": "Please answer the following"}],
+)
 
 
 #### First question
@@ -71,12 +108,8 @@ answer = test_gpt(
     thread,
     "Write a python program to calculate the first n fibonacci numbers. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
 )
-thread_messages = client.beta.threads.messages.list(thread.id)
-message_list = [message.model_dump() for message in thread_messages.data]
-with open("./output/test.txt", "a") as f:
-    f.write(json.dumps(message_list, indent=4))
-    f.write("END \n\n\n")
 
+delete_messages(thread, dummy_id)
 
 ### Second question
 answer = test_gpt(
@@ -84,24 +117,17 @@ answer = test_gpt(
     thread,
     "Write a python program to solve (x-2)/(x-3) for its roots. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
 )
-thread_messages = client.beta.threads.messages.list(thread.id)
-message_list = [message.model_dump() for message in thread_messages.data]
-with open("./output/test.txt", "a") as f:
-    f.write(json.dumps(message_list, indent=4))
-    f.write("END \n\n\n")
 
+delete_messages(thread, dummy_id)
 
 ### Third question
 answer = test_gpt(
-    assistant,
-    thread,
-    "Write a python program to implement a hashing algorithm and hash the string 'test-hash' . Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
+    assistant_2,
+    thread_2,
+    "Whats a good joke?",
 )
-thread_messages = client.beta.threads.messages.list(thread.id)
-message_list = [message.model_dump() for message in thread_messages.data]
-with open("./output/test.txt", "a") as f:
-    f.write(json.dumps(message_list, indent=4))
-    f.write("END \n\n\n")
+
+# delete_messages(thread, dummy_id)
 
 ### Fourth question
 answer = test_gpt(
@@ -109,8 +135,22 @@ answer = test_gpt(
     thread,
     "Write a python program to count backwards from 100 to 0, only returning the even numbers. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
 )
-thread_messages = client.beta.threads.messages.list(thread.id)
-message_list = [message.model_dump() for message in thread_messages.data]
-with open("./output/test.txt", "a") as f:
-    f.write(json.dumps(message_list, indent=4))
-    f.write("END \n\n\n")
+
+delete_messages(thread, dummy_id)
+
+### I tried having this one not code - it seems like a switch between coding and not coding re-starts the session
+### Fifth
+# answer = test_gpt(
+#     assistant,
+#     thread,
+#     "What is the meaning of life? Do NOT use the code interpreter",
+# )
+
+delete_messages(thread, dummy_id)
+
+### Sixth
+answer = test_gpt(
+    assistant,
+    thread,
+    "Write a python program to calculate the square root of a number. Try it out with 1-10. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
+)
