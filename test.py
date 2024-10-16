@@ -6,17 +6,7 @@ from utils.gpt_robots import log_messages
 client = openai.OpenAI(api_key=OPENAI_KEY)
 
 
-def test_gpt(message, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n=1):
-    # Create a new assistant - shouldn't be done each time Idt - I think it makes a new code interpreter each time
-    assistant = client.beta.assistants.create(
-        model=model,
-        instructions="""You are a coding assistant. Use the code interpreter and solve the question""",
-        name="Test",
-        tools=[{"type": "code_interpreter"}],
-    )
-
-    # Start a thread
-    thread = client.beta.threads.create()
+def test_gpt(assistant, thread, message):
 
     # Add the content: mesage here
     client.beta.threads.messages.create(
@@ -42,7 +32,7 @@ def test_gpt(message, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n
             )
             # Have to get data and then do this annoying thing
             run_steps_data = [step.model_dump() for step in run_steps.data]
-            log_messages(all_messages, "test", run_steps_data)
+            # log_messages(all_messages, "test", run_steps_data) #TODO: uncomment logging
 
             try:
                 Assistant_response = all_messages.data[0].content[0].text.value
@@ -62,10 +52,48 @@ def test_gpt(message, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n
     return Assistant_response
 
 
-answer = test_gpt(
-    "Write a python program to calculate the first n fibonacci numbers. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
-    max_tokens=256,
+#### Testing out persistent threads
+# New assistant
+assistant = client.beta.assistants.create(
     model="gpt-4-1106-preview",
-    temperature=0.7,
-    n=1,
+    instructions="""You are a coding assistant. Use the code interpreter and solve the question""",
+    name="Test of Persistence",
+    tools=[{"type": "code_interpreter"}],
 )
+# Start a thread
+thread = client.beta.threads.create()
+
+
+#### First question
+answer = test_gpt(
+    assistant,
+    thread,
+    "Write a python program to calculate the first n fibonacci numbers. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
+)
+thread_messages = client.beta.threads.messages.list(thread.id)
+message_list = [message.model_dump() for message in thread_messages.data]
+with open("./output/test.txt", "a") as f:
+    f.write(json.dumps(message_list, indent=4))
+    f.write("END \n\n\n")
+
+### Lets try and delete all the messages
+for message in message_list:
+    id = message.get("id")
+    print(id)
+
+    client.beta.threads.messages.delete(
+        message_id=id,
+        thread_id=thread.id,
+    )
+
+### Second question
+answer = test_gpt(
+    assistant,
+    thread,
+    "Write a python program to solve (x-2)/(x-3) for its roots. Check that it works by running it in the code interpreter, and print() out the final answer to make sure its actually correct.",
+)
+thread_messages = client.beta.threads.messages.list(thread.id)
+message_list = [message.model_dump() for message in thread_messages.data]
+with open("./output/test.txt", "a") as f:
+    f.write(json.dumps(message_list, indent=4))
+    f.write("END \n\n\n")

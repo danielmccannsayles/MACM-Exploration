@@ -12,7 +12,8 @@ def generate_from_thinker(
     assistant = client.beta.assistants.create(
         model=model,
         instructions="""You are a thinker. I need you to help me think about some problems.
-        You need to provide me the answer based on the format of the example.""",
+        You need to provide me the answer based on the format of the example. If you use the code interpreter, 
+        make sure to ALWAYS print() the final answer """,
         name="Thinker",
         tools=[{"type": "code_interpreter"}],
     )
@@ -70,7 +71,8 @@ def generate_from_judge(
 
     assistant = client.beta.assistants.create(
         model=model,
-        instructions="""You're a judge. I need you to make judgments on some statements.""",
+        instructions="""You're a judge. I need you to make judgments on some statements. If you use the code interpreter, 
+        make sure to ALWAYS print() the final answer""",
         name="Judge",
         tools=[{"type": "code_interpreter"}],
     )
@@ -128,7 +130,8 @@ def generate_from_excutor(
     assistant = client.beta.assistants.create(
         model=model,
         instructions="""You're an excutor. I need you to calculate the final result based on some conditions and steps.
-        You need to provide me the answer based on the format of the examples.""",
+        You need to provide me the answer based on the format of the examples. If you use the code interpreter, 
+        make sure to ALWAYS print() the final answer""",
         name="Excutor",
         tools=[{"type": "code_interpreter"}],
     )
@@ -239,10 +242,10 @@ def log_messages(messages, title, run_steps):
                     )
     tool_call_string = "\n".join(tool_calls)
 
-    # Add tool usage section to all_messages
-
+    # Add tool usage section to all_messages iff we have any tool usage
     tool_usage_section = f"### Tool Usage\n{tool_call_string}"
-    all_messages.append(tool_usage_section)
+    if len(tool_calls) > 0:
+        all_messages.append(tool_usage_section)
 
     # Join all messages with newlines
     parsed_messages = "\n".join(all_messages + ["======="])
