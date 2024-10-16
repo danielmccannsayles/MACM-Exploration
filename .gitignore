@@ -1,0 +1,10 @@
+__pycache__
+
+# OpenAI key
+secret_key.py
+
+# MATH database
+MATH
+
+# Log of each run
+output/ 

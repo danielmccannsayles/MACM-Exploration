@@ -1,22 +1,26 @@
 import code
 from openai import OpenAI
-import backoff 
+import backoff
+
+### I think this is all old stuff. Leaving for posterity
 
 
 client = OpenAI(
     # defaults to os.environ.get("OPENAI_API_KEY")
     api_key="",
-) # Input your own API-Key
+)  # Input your own API-Key
+
 
 def chat_gpt(prompt):
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
+        model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content.strip()
 
 
-def generate_from_GPT(prompts, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n=3):
+def generate_from_GPT(
+    prompts, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n=3
+):
     """
     Generate answer from GPT model with the given prompt.
     input:
@@ -53,26 +57,29 @@ def generate_from_GPT(prompts, max_tokens, model="gpt-4-1106-preview", temperatu
     ]
     """
     import openai
-    openai.api_key = "" # TODO
+
+    openai.api_key = ""  # TODO
 
     try:
         result = completions_with_backoff(
-            model = model, 
-            messages = prompts, 
-            temperature = temperature, 
-            max_tokens = max_tokens, 
-            n = n
+            model=model,
+            messages=prompts,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            n=n,
         )
 
         generated_ans = result["choices"]
         return generated_ans
-    
+
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
 
 
-def Judge_if_got_Answer_from_GPT(prompts, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n=1):
+def Judge_if_got_Answer_from_GPT(
+    prompts, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n=1
+):
     """
     Generate answer from GPT model with the given prompt.
     input:
@@ -86,18 +93,20 @@ def Judge_if_got_Answer_from_GPT(prompts, max_tokens, model="gpt-4-1106-preview"
         response = client.chat.completions.create(
             model=model,
             messages=prompts,
-            max_tokens = max_tokens,
-            temperature = temperature,
-            n = n
+            max_tokens=max_tokens,
+            temperature=temperature,
+            n=n,
         )
         return response.choices[0].message.content.strip()
-    
+
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
-    
-    
-def Find_Answer_from_GPT(prompts, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n=1):
+
+
+def Find_Answer_from_GPT(
+    prompts, max_tokens, model="gpt-4-1106-preview", temperature=0.7, n=1
+):
     """
     Generate answer from GPT model with the given prompt.
     input:
@@ -111,12 +120,12 @@ def Find_Answer_from_GPT(prompts, max_tokens, model="gpt-4-1106-preview", temper
         response = client.chat.completions.create(
             model=model,
             messages=prompts,
-            max_tokens = max_tokens,
-            temperature = temperature,
-            n = n
+            max_tokens=max_tokens,
+            temperature=temperature,
+            n=n,
         )
         return response.choices[0].message.content.strip()
-    
+
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
