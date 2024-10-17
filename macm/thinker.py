@@ -1,5 +1,6 @@
 import re
 from utils.gpt_assistants import generate_from_assistant
+from utils.gpt_code_assistant import generate_from_code_assistant
 from prompt.prompts import *
 
 
@@ -66,25 +67,27 @@ def Think_thoughts(conditions, objectives, assistant, thread):
     Output:
     new conditions (List)
     """
-    messages = []
     numbered_conditions = "\n".join(
         f"{i + 1}. {condition}" for i, condition in enumerate(conditions)
     )
     numbered_objective = "\n".join(
         f"{i + 1}. {objective}" for i, objective in enumerate(objectives)
     )
-    message = {
-        "role": "user",
-        "content": Discover_new_conditions.format(
-            Known_conditions=numbered_conditions, Objective=numbered_objective
-        ),
-    }
-    messages.append(message)
-    message = {"role": "user", "content": Summarize_Answer}
-    messages.append(message)
+
+    messages = [
+        {
+            "role": "user",
+            "content": Discover_new_conditions.format(
+                Known_conditions=numbered_conditions, Objective=numbered_objective
+            ),
+        },
+        {"role": "user", "content": Summarize_Answer},
+    ]
+
+    persona = "You are a thinker. I need you to help me think about some problems. You need to provide me the answer based on the format of the example. "
     # new_condition = generate_from_GPT(messages, max_tokens = 128, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    new_condition = generate_from_assistant(
-        messages, assistant, thread, "thinker (code)"
+    new_condition = generate_from_code_assistant(
+        persona, messages, assistant, thread, "thinker (code)"
     )
     if new_condition:
         condition = [new_condition.strip()]  # Single condition situation

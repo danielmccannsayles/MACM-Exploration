@@ -7,7 +7,7 @@ from collections import Counter
 from macm.executor import Execute_steps
 from macm.judge import Judge_statement, Judge_answer, Judge_condition
 from macm.thinker import Analysis_conditions, Think_thoughts, Think_Steps
-from utils.gpt_assistants import create_agents_and_thread
+from utils.assistants import create_agents_and_thread
 
 
 def check_condition(question, condition, n, assistant, thread):
@@ -24,7 +24,7 @@ def check_condition(question, condition, n, assistant, thread):
     return True
 
 
-def check_statement(conditions, statement, n, assistant, thread):
+def check_statement(conditions, statement, n, coding_assistant, coding_thread):
     """
     Use several Judges to check the statement
     Input:
@@ -33,7 +33,7 @@ def check_statement(conditions, statement, n, assistant, thread):
     True/False (bool)
     """
     for _ in range(n):
-        answer = Judge_statement(conditions, statement, assistant, thread)
+        answer = Judge_statement(conditions, statement, coding_assistant, coding_thread)
         if "False" in answer or "false" in answer:
             return False
     return True
@@ -89,38 +89,49 @@ def main(question, times, n, min_voters, max_voters):
     possible_answers = []
 
     # Create the agents
-    thinker_assistant, executor_assistant, judge_assistant, thread = (
-        create_agents_and_thread()
-    )
+    (
+        (thinker_assistant, executor_assistant, judge_assistant),
+        thread,
+        (coding_assistant, coding_thread),
+    ) = create_agents_and_thread()
 
     ### The actual coding
     try:
         voter_count = 0
         tie = True
 
-        # Vote
+        # A vote just means we do x amount of this process.
         while tie or voter_count < min_voters:
             voter_count += 1
             print(f"\n# {voter_count} Thinker is analyzing the question...")
+
+            # Get the first conditions and objective(s)
             conditions, objectives = Analysis_conditions(
                 question, thinker_assistant, thread
             )
+
             Initial_condition_numbers = len(
                 conditions
             )  # This line will be used for the $while$ mode
 
             # Think thoughts
             # while len(conditions) - Initial_condition_numbers <= times:
-            for time in range(times):  # Try to reduce the LLM queries.
+            for _ in range(times):  # Try to reduce the LLM queries.
                 print(f"\n# {voter_count} Thinker is thinking new thoughts...")
                 unchecked_conditions = Think_thoughts(
-                    conditions, objectives, thinker_assistant, thread
+                    conditions, objectives, coding_assistant, coding_thread
                 )
                 checked_conditions = []
+
+                # Check each new condition w/ the judge - check_statment
                 for unchecked_condition in unchecked_conditions:
                     print(f"\n# {voter_count} Judge is checking conditions...")
                     if check_statement(
-                        conditions, unchecked_condition, n, judge_assistant, thread
+                        conditions,
+                        unchecked_condition,
+                        n,
+                        coding_assistant,
+                        coding_thread,
                     ):
                         start = unchecked_condition.find("we can get: ")
                         if start != -1:
@@ -131,6 +142,8 @@ def main(question, times, n, min_voters, max_voters):
                                 0
                             ]
                         checked_conditions.append(unchecked_condition)
+
+                # Add the new conditions that passed
                 conditions = conditions + checked_conditions
                 if_got_answer = check_if_got_answer(
                     conditions, objectives, 1, judge_assistant, thread
@@ -142,7 +155,7 @@ def main(question, times, n, min_voters, max_voters):
 
             print(f"\n# {voter_count} Executor is trying to calculate the answer...")
             final_answer = Execute_steps(
-                conditions, objectives, steps, executor_assistant, thread
+                conditions, objectives, steps, coding_assistant, coding_thread
             )
 
             # Achieve one potiential answer
@@ -152,6 +165,10 @@ def main(question, times, n, min_voters, max_voters):
             else:
                 Answer_boxed = "No match found"
             possible_answers.append(Answer_boxed)
+
+            # Once we get to the max voter count we look through the possible answers and see if they all agree. However, a better way of doing this would be
+            # To format this in the way of the halting problem.
+            # If the first let say 3 answers all agree, we're probably good. However, if they don't agree, we need to keep adding in
             if voter_count >= min_voters:
                 counter = Counter(possible_answers)
                 most_votes = counter.most_common(1)[0][1]

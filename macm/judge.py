@@ -1,4 +1,5 @@
 from utils.gpt_assistants import generate_from_assistant
+from utils.gpt_code_assistant import generate_from_code_assistant
 from prompt.prompts import *
 
 
@@ -32,21 +33,24 @@ def Judge_statement(Known_condtions, condition_from_thinker, assistant, thread):
     Output:
     True/False (Str)
     """
-    messages = []
     numbered_conditions = "\n".join(
         f"{i + 1}. {condition}" for i, condition in enumerate(Known_condtions)
     )
-    message = {
-        "role": "user",
-        "content": Judge_T_F.format(
-            Known_condtions=numbered_conditions,
-            condition_from_thinker=condition_from_thinker,
-        ),
-    }
-    messages.append(message)
-    message = {"role": "user", "content": T_or_F_prompt}
-    messages.append(message)
-    T_or_F = generate_from_assistant(messages, assistant, thread, "judge (code)")
+    messages = [
+        {
+            "role": "user",
+            "content": Judge_T_F.format(
+                Known_condtions=numbered_conditions,
+                condition_from_thinker=condition_from_thinker,
+            ),
+        },
+        {"role": "user", "content": T_or_F_prompt},
+    ]
+    persona = "You're a judge. I need you to make judgments on some statements. "
+
+    T_or_F = generate_from_code_assistant(
+        persona, messages, assistant, thread, "judge (code)"
+    )
     return T_or_F
 
 

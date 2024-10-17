@@ -5,35 +5,6 @@ from utils.helpers import log_messages
 client = openai.OpenAI(api_key=OPENAI_KEY)
 
 
-def create_agents_and_thread():
-    thinker_assistant = client.beta.assistants.create(
-        model="gpt-4-1106-preview",
-        instructions="""You are a thinker. I need you to help me think about some problems.
-        You need to provide me the answer based on the format of the example. """,
-        name="Thinker",
-        tools=[{"type": "code_interpreter"}],
-    )
-
-    executor_assistant = client.beta.assistants.create(
-        model="gpt-4-1106-preview",
-        instructions="""You're an excutor. I need you to calculate the final result based on some conditions and steps.
-            You need to provide me the answer based on the format of the examples. """,
-        name="Excutor",
-        tools=[{"type": "code_interpreter"}],
-    )
-
-    judge_assistant = client.beta.assistants.create(
-        model="gpt-4-1106-preview",
-        instructions="""You're a judge. I need you to make judgments on some statements. """,
-        name="Judge",
-        tools=[{"type": "code_interpreter"}],
-    )
-
-    # I should be able to use just one thread since I'm clearing it each time:
-    thread = client.beta.threads.create()
-    return thinker_assistant, executor_assistant, judge_assistant, thread
-
-
 def generate_from_assistant(prompts, assistant, thread, name):
     """Clears current thread, generates new responses based on prompt(s) passed. Does not handle thread timeout (yet?)
 

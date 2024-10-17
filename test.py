@@ -81,7 +81,11 @@ assistant = client.beta.assistants.create(
 )
 # Start a thread w/ a dummy message
 thread = client.beta.threads.create(
-    messages=[{"role": "user", "content": "Please answer the following"}],
+    messages=[
+        {"role": "user", "content": "Please answer the following"},
+        {"role": "user", "content": "Please answer the following"},
+        {"role": "user", "content": "3rd"},
+    ],
 )
 
 # Get the dummy message id
