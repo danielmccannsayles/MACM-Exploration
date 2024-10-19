@@ -1,127 +1,87 @@
-import re
-from utils.gpt_assistants import generate_from_assistant
-from utils.gpt_code_assistant import generate_from_code_assistant
-from prompt.prompts import *
+from utils.gpt import generate_from_gpt, generate_from_gpt_with_schema
+from macm.helpers import conditions_objectives_to_string
+from macm.schemas import ConditionsAndObjectives, NewConditions
+from prompt.prompts import (
+    extract_conditions_objectives_from_problem,
+    Discover_new_conditions,
+    Determine_Steps,
+)
 
 
-def Analysis_conditions(question, assistant, thread):
+# Extract from original - get conditions and objectives from original question
+# New conditions from existing - get new conditions from existing conditions and objectives
+# Create steps - create a step by step plan, based on the existing conditions and objectives, to solve the problem
+
+
+# TODO: Is there a better way to handle multi-step objectives? Kinda like steps? Would be cool to split the work up into some discreet steps.
+# ... something to think about
+def extract_from_original(question):
     """
-    ask GPT to determine the conditions and objectives of a question.
-    Input:
-    Origianl questions (Str)
-    Output:
-    conditions and objectives (List, List)
+    Extract conditions and objective(s) from the original question
+    Args:
+        Question: The given word problem (str)
+    Returns:
+        (conditions, objectives): List of conditions and objective(s)?
     """
-    messages = []
-    message = {
-        "role": "user",
-        "content": Analysis_conditions_objective.format(Question=question),
-    }
-    messages.append(message)
-    # answer = generate_from_GPT(messages, max_tokens = 256, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    answer = generate_from_assistant(messages, assistant, thread, "thinker")
-    parts = answer.split("Objective:")
-    conditions_text = parts[0].replace("Conditions:", "").strip()
-    conditions = re.findall(r"\d\.\s*(.*)", conditions_text)
-    conditions = [condition.strip() for condition in conditions]
-    objectives_text = parts[1].strip()
-    if re.search(r"\d\.\s+", objectives_text):
-        # Extract objectives with numbers
-        objectives = re.findall(r"\d\.\s*(.*)", objectives_text)
-    else:
-        # Split objectives by newline for unnumbered items
-        objectives = objectives_text.split("\n")
-    objectives = [objective.strip() for objective in objectives]
-    return conditions, objectives
-
-
-# TODO: Daniel - I don't think this is used at all. Remove it
-def Fix_conditions(question, Initial_conditions, assistant, thread):
-    """
-    ask GPT to fix the wrong initial condition of a question.
-    Input:
-    question and initial condition (Str, Str)
-    Output:
-    fixed condition (Str)
-    """
-    messages = []
-    message = {
-        "role": "user",
-        "content": Fix_conditions_prompt.format(
-            question=question, Initial_conditions=Initial_conditions
-        ),
-    }
-    messages.append(message)
-    # answer = generate_from_GPT(messages, max_tokens = 256, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    fixed_condition = generate_from_assistant(messages, assistant, thread, "thinker")
-    return fixed_condition
-
-
-def Think_thoughts(conditions, objectives, assistant, thread):
-    """
-    **Uses code interpreter**
-
-    Ask GPT to think about other condtions.
-    Input:
-    conditions and objective return from Analysis_conditions (List, List)
-    Output:
-    new conditions (List)
-    """
-    numbered_conditions = "\n".join(
-        f"{i + 1}. {condition}" for i, condition in enumerate(conditions)
-    )
-    numbered_objective = "\n".join(
-        f"{i + 1}. {objective}" for i, objective in enumerate(objectives)
-    )
-
     messages = [
+        {
+            "role": "system",
+            "content": "You are a thinker. Be creative",
+        },
+        {
+            "role": "user",
+            "content": extract_conditions_objectives_from_problem.format(
+                question=question
+            ),
+        },
+    ]
+    conditions_and_objectives = generate_from_gpt_with_schema(
+        messages, ConditionsAndObjectives
+    )
+
+    return conditions_and_objectives.conditions, conditions_and_objectives.objectives
+
+
+# TODO: For some rason I thought this used to use code. I can't find any supporting evidence of this in the logs though, and intuitively idk why it would
+def new_conditions_from_existing(conditions, objectives):
+    """
+    Come up with new conditions from the existing conditions and the objective(s)
+    """
+    conditions_str, objectives_str = conditions_objectives_to_string(
+        conditions, objectives
+    )
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a thinker. Be creative. Don't be afraid to be wrong",
+        },
         {
             "role": "user",
             "content": Discover_new_conditions.format(
-                Known_conditions=numbered_conditions, Objective=numbered_objective
+                conditions=conditions_str, objectives=objectives_str
             ),
         },
-        {"role": "user", "content": Summarize_Answer},
     ]
-
-    persona = "You are a thinker. I need you to help me think about some problems. You need to provide me the answer based on the format of the example. "
-    # new_condition = generate_from_GPT(messages, max_tokens = 128, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    new_condition = generate_from_code_assistant(
-        persona, messages, assistant, thread, "thinker (code)"
-    )
-    if new_condition:
-        condition = [new_condition.strip()]  # Single condition situation
-        # pattern = r"Based on .+? we can get: .+? Reason: .+?\." # Multiple conditions situation
-        # condition = re.findall(pattern, new_condition, re.DOTALL)
-
-    else:  # Avoid the run status fail situation
-        new_condition = "I need to rethink it"
-        condition = [new_condition.strip()]
-    return condition
+    new_conditions = generate_from_gpt_with_schema(messages, NewConditions)
+    return new_conditions.value
 
 
-def Think_Steps(condition_from_thinker, objective_from_thinker, assistant, thread):
+# TODO: should I use json schema to force this into a list? Probably not needed..
+def create_steps(conditions, objectives) -> str:
     """
-    ask GPT to think about other condtions.
-    Input:
-    conditions and objective return from Think_thoughts (List, List)
-    Output:
-    Steps for solving the problem (Str)
+    Create steps from list of conditions and objectives
     """
-    messages = []
-    numbered_conditions = "\n".join(
-        f"{i + 1}. {condition}" for i, condition in enumerate(condition_from_thinker)
+    conditions_str, objectives_str = conditions_objectives_to_string(
+        conditions, objectives
     )
-    numbered_objective = "\n".join(
-        f"{i + 1}. {objective}" for i, objective in enumerate(objective_from_thinker)
+    steps = generate_from_gpt(
+        [
+            {
+                "role": "user",
+                "content": Determine_Steps.format(
+                    Known_conditions=conditions_str, Objective=objectives_str
+                ),
+            }
+        ]
     )
-    message = {
-        "role": "user",
-        "content": Determine_Steps.format(
-            Known_conditions=numbered_conditions, Objective=numbered_objective
-        ),
-    }
-    messages.append(message)
-    # steps = generate_from_GPT(messages, max_tokens = 256, model="gpt-4-1106-preview", temperature=0.7, n=1)[0]["message"]["content"]
-    steps = generate_from_assistant(messages, assistant, thread, "thinker")
     return steps

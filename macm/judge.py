@@ -1,29 +1,18 @@
-from utils.gpt_assistants import generate_from_assistant
 from utils.gpt_code_assistant import generate_from_code_assistant
+from utils.gpt import generate_from_gpt_with_schema, generate_from_gpt
+from macm.helpers import list_to_numbered_string, conditions_objectives_to_string
+from macm.schemas import NewCondition, CorrectOrCorrectedCondition, TrueOrFalse
 from prompt.prompts import *
+from typing import Optional
 
 
-def Judge_condition(question, condition, assistant, thread):
-    """
-    ask GPT to Judge the thoughts from the thinker
-    Input:
-    Known_condtions, Condition from the thinker (List, Str)
-    Output:
-    True/False (Str)
-    """
-    messages = []
-    message = {
-        "role": "user",
-        "content": Judge_condtion.format(
-            question=question, Initial_conditions=condition
-        ),
-    }
-    messages.append(message)
-    T_or_F = generate_from_assistant(messages, assistant, thread, "judge")
-    return T_or_F
-
-
-def Judge_statement(Known_condtions, condition_from_thinker, assistant, thread):
+# TODO: extract some code from this bloated function
+# TODO: onnly pass in the conditions that are supposed to support the conclusion - this may reduce accuracy, but it tests whether this pattern actually works
+# much better than current, where we give it all the conditions.
+# TODO: We can have the judge return "True" or if it's incorrect we can correct it.
+def verify_new_condition(
+    known_conditions: list, new_condition: NewCondition, assistant, thread
+) -> Optional[NewCondition]:
     """
     **Uses code interpreter**
 
@@ -31,30 +20,73 @@ def Judge_statement(Known_condtions, condition_from_thinker, assistant, thread):
     Input:
     Known_condtions, Condition from the thinker (List, Str)
     Output:
-    True/False (Str)
+        New Condition or false
     """
-    numbered_conditions = "\n".join(
-        f"{i + 1}. {condition}" for i, condition in enumerate(Known_condtions)
+    known_conditions_str = list_to_numbered_string(known_conditions)
+    indices = " and ".join(str(x) for x in new_condition.based_on_known_conditions)
+
+    new_condition_str = f"Based on Known Condition(s) {indices}, we can derive: {new_condition.new_condition}, because: {new_condition.reason}"
+
+    content = Judge_T_F.format(
+        known_conditions=known_conditions_str,
+        new_condition=new_condition_str,
     )
-    messages = [
+
+    persona = "You're a judge. I need you to make judgments on some statements. "
+    response_messages = generate_from_code_assistant(
+        persona, content, assistant, thread, "judge (code)"
+    )
+
+    # Response messages is all the GPT responses. I don't think it includes the code stuff. Maybe would be worth including?
+    # TODO: do I need to give more context? I could also add in the original messages object. Let's see if it gets confused like this
+    response_messages.append(
         {
             "role": "user",
-            "content": Judge_T_F.format(
-                Known_condtions=numbered_conditions,
-                condition_from_thinker=condition_from_thinker,
-            ),
-        },
-        {"role": "user", "content": T_or_F_prompt},
-    ]
-    persona = "You're a judge. I need you to make judgments on some statements. "
-
-    T_or_F = generate_from_code_assistant(
-        persona, messages, assistant, thread, "judge (code)"
+            "content": """Using ONLY the messages above -> 
+            Set the 'correct' response property to true if the condition under review was verified and false if not.
+            Set the corrected_condition property to the suggested new condition if the above messages suggest a new condition. Else set it to None""",
+        }
     )
-    return T_or_F
+
+    correct_or_corrected_condition = generate_from_gpt_with_schema(
+        response_messages, CorrectOrCorrectedCondition
+    )
+
+    # If the new condition was verified correctly, then we return it and end here!
+    if correct_or_corrected_condition.correct:
+        return new_condition
+
+    # If they returned a corrected condition let's verify it by using the assistant and then asking gpt once more
+    if correct_or_corrected_condition.corrected_condition:
+        corrected_condition = correct_or_corrected_condition.corrected_condition
+        indices = " and ".join(
+            str(x) for x in corrected_condition.based_on_known_conditions
+        )
+        corrected_condition_str = f"Based on Known Condition(s) {indices}, we can derive: {corrected_condition.new_condition}, because: {corrected_condition.reason}"
+        content = Judge_T_F.format(
+            known_conditions=known_conditions_str,
+            new_condition=corrected_condition_str,
+        )
+
+        persona = "You're a judge. I need you to make judgments on some statements. "
+        response_messages = generate_from_code_assistant(
+            persona, content, assistant, thread, "judge (code)"
+        )
+        response_messages.append(
+            {"role": "user", "content": "Return only true or false"}
+        )
+        verify = generate_from_gpt(response_messages)
+
+        # If this still isn't correct, give up on this condition completely
+        if "False" in verify or "false" in verify:
+            return None
+        else:
+            return corrected_condition
+
+    return None
 
 
-def Judge_answer(Known_condtions, objectives, assistant, thread):
+def check_answer(conditions, objectives):
     """
     Ask GPT to Judge if we already got the answer
     Input:
@@ -62,21 +94,28 @@ def Judge_answer(Known_condtions, objectives, assistant, thread):
     Output:
     False / True ,answer (Str)
     """
-    messages = []
-    numbered_conditions = "\n".join(
-        f"{i + 1}. {condition}" for i, condition in enumerate(Known_condtions)
+
+    conditions_str, objectives_str = conditions_objectives_to_string(
+        conditions, objectives
     )
-    numbered_Objective = "\n".join(
-        f"{i + 1}. {objective}" for i, objective in enumerate(objectives)
-    )
-    message = {
-        "role": "user",
-        "content": Judge_if_got_Answer.format(
-            Known_condtions=numbered_conditions, Objective=numbered_Objective
-        ),
-    }
-    messages.append(message)
-    message = {"role": "user", "content": If_got_Answer_T_F}
-    messages.append(message)
-    T_or_F = generate_from_assistant(messages, assistant, thread, "judge")
-    return T_or_F
+    messages = [
+        {
+            "role": "user",
+            "content": Judge_if_got_Answer.format(
+                conditions=conditions_str, objectives=objectives_str
+            ),
+        },
+    ]
+
+    response = generate_from_gpt(messages)
+
+    messages = [
+        {"role": "assistant", "content": response},
+        {
+            "role": "user",
+            "content": "Summarize the above analysis as just True or False",
+        },
+    ]
+
+    do_we_have_answer = generate_from_gpt_with_schema(messages, TrueOrFalse)
+    return do_we_have_answer.value

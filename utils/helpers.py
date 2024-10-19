@@ -2,7 +2,7 @@ def log_messages(messages, title, run_steps):
     """Function to format OpenAI thread messages as 'role: content', then add them to a log file
 
     Parameters:
-    messages (object): The messages object returned by OpenAI's threads API (in desc order, a.k.a reverse chronological)
+    messages (object): role and content
     title (str): The name to prefix that chunk of messages
     run_steps(object): The run steps. Where tool calling is recorded
 
@@ -15,25 +15,12 @@ def log_messages(messages, title, run_steps):
 
     """
 
-    ### Parse the messages
-    # Check if the messages is correct, and reverse its order
-    if messages and hasattr(messages, "data") and messages.data:
-        raw_messages = messages.data  # Extract messages
-        reversed_messages = raw_messages[::-1]  # Reverse the order
-    else:
-        print("No messages found or response is None")
-        return
-
+    ### Turn message obj into formatted strings
     all_messages = ["=======", f"## {title}"]
-    # Iterate over messages and format them as 'role: content'
-    for thread_message in reversed_messages:
-        role = thread_message.role
-        content = ""
-        for content_item in thread_message.content:
-            content += content_item.text.value
-
-        formatted_message = f"### {role}: \n{content}"
-        all_messages.append(formatted_message)
+    for m in messages:
+        role = m.get("role", "role")
+        content = m.get("content", "content")
+        all_messages.append(f"### {role}: \n{content}")
 
     ### Extract tool calls from the run_steps
     tool_calls = []

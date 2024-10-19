@@ -7,7 +7,6 @@ client = openai.OpenAI(api_key=OPENAI_KEY)
 
 
 def test_gpt(assistant, thread, message):
-
     # Add the content: mesage here
     client.beta.threads.messages.create(
         thread_id=thread.id,

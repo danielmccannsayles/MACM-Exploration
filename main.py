@@ -1,66 +1,29 @@
 import os
-import re
 import json
 import random
 from prompt.prompts import *
-from collections import Counter
-from macm.executor import Execute_steps
-from macm.judge import Judge_statement, Judge_answer, Judge_condition
-from macm.thinker import Analysis_conditions, Think_thoughts, Think_Steps
+from macm.executor import execute_steps
+from macm.judge import verify_new_condition, check_answer
+from macm.thinker import (
+    extract_from_original,
+    new_conditions_from_existing,
+    create_steps,
+)
 from utils.assistants import create_agents_and_thread
 
 
-def check_condition(question, condition, n, assistant, thread):
-    """
-    Use several Judges to check the statement
-    Input:
-    conditions, unchecked_conditions, the number of the inspectors (List, Str, int)
-    Output:
-    True/False (bool)
-    """
-    for _ in range(n):
-        if Judge_condition(question, condition, assistant, thread).strip() == "False":
-            return False
-    return True
+def log(title, *args):
+    content = []
+    for arg in args:
+        content.append(str(arg))
+    content_str = "\n".join(content)
+
+    file_path = f"./output/messages.md"
+    with open(file_path, "a") as f:
+        f.write(f"======\n## {title}\n #{content_str} \n")
 
 
-def check_statement(conditions, statement, n, coding_assistant, coding_thread):
-    """
-    Use several Judges to check the statement
-    Input:
-    conditions, unchecked_conditions, the number of the inspectors (List, Str, int)
-    Output:
-    True/False (bool)
-    """
-    for _ in range(n):
-        answer = Judge_statement(conditions, statement, coding_assistant, coding_thread)
-        if "False" in answer or "false" in answer:
-            return False
-    return True
-
-
-def check_answer(conditions, statement, assistant, thread):
-    """
-    Use several Judges to check the answer
-    Input:
-    unchecked_conditions, the number of the inspectors (Str, int)
-    Output:
-    True/False (bool)
-    """
-    if_got_answer = Judge_answer(conditions, statement, assistant, thread)
-    if "False" in if_got_answer or "false" in if_got_answer:
-        return False
-    return True
-
-
-def check_if_got_answer(conditions, statement, n, assistant, thread):
-    for _ in range(n):
-        if check_answer(conditions, statement, assistant, thread) == False:
-            return False
-    return True
-
-
-def main(question, times, n, min_voters, max_voters):
+def main(question, max_times_mining_new):
     """
     Input question and get the final answer from muti-Agent got
     Input:
@@ -68,136 +31,88 @@ def main(question, times, n, min_voters, max_voters):
     Output:
     final answer (Str)
     """
-    ### Documentation
-
-    # In a larger while statment. We add a voter count each time. We keep going until we hit the min_voters
-
-    # First we use Analysis_conditions to get the first conditions and objectives from the problem
-
-    # Then we enter into a for loop for the # of times:
-    # Then we Think_thoughts with those conditions and objectives to (make new conditions)?
-    # Then for all the new conditions from the Think_thoughts we check_statement()
-    # If check_if_got_answer is true we break the for loop early
-
-    # Then we think steps
-    # Then we try executing the steps
-    # Then we see if we got an answer
-
-    # how does the voting work? I think when it gets to the end (of inside the while loop), if its over the min voters
-    # it sets tie to true, and it runs again. It can run 2 more times. This is very obfuscated and annoying
-
-    possible_answers = []
 
     # Create the agents
-    (
-        (thinker_assistant, executor_assistant, judge_assistant),
-        thread,
-        (coding_assistant, coding_thread),
-    ) = create_agents_and_thread()
+    coding_assistant, coding_thread = create_agents_and_thread()
 
     ### The actual coding
-    try:
-        voter_count = 0
-        tie = True
 
-        # A vote just means we do x amount of this process.
-        while tie or voter_count < min_voters:
-            voter_count += 1
-            print(f"\n# {voter_count} Thinker is analyzing the question...")
+    # TODO: I'd like to have GPT rate how hard it thinks the problem is at different steps. And then dynamically adjust the iterations we do.
+    # This seems like with some tweaking it would really improve the efficiency
 
-            # Get the first conditions and objective(s)
-            conditions, objectives = Analysis_conditions(
-                question, thinker_assistant, thread
+    # TODO: do we want to put a loop around this? And check that the questions analyzed by the thinker are correct?
+
+    print(f"Extracting conditions and objective(s) from problem..")
+    conditions, objectives = extract_from_original(question)
+    log("Extracted from problem, (conditions, objectives)", conditions, objectives)
+
+    # New condition mining loop has a max # of tries
+    for i in range(max_times_mining_new):
+        print(f"Mining new conditions from existing ({i+1}/{max_times_mining_new})")
+        unchecked_conditions = new_conditions_from_existing(conditions, objectives)
+        log(
+            f"Unchecked Conditions ({i+1}/{max_times_mining_new})",
+            unchecked_conditions,
+        )
+
+        verified_conditions = []
+        # Check each new condition w/ the judge - check_statment
+        for i, unchecked in enumerate(unchecked_conditions):
+            print(f"Verifying condition #{i+1}..")
+            print(f"{unchecked}\n")
+
+            # Verifies new condition. If it's wrong, tries to correct. Verifies that corrected condition. If wrong again, returns None
+            verified = verify_new_condition(
+                conditions,
+                unchecked,
+                coding_assistant,
+                coding_thread,
             )
+            if verified:
+                verified_conditions.append(verified.new_condition)
 
-            Initial_condition_numbers = len(
-                conditions
-            )  # This line will be used for the $while$ mode
+        # Add the new verified conditions to the exisiting conditions!
+        conditions += verified_conditions
 
-            # Think thoughts
-            # while len(conditions) - Initial_condition_numbers <= times:
-            for _ in range(times):  # Try to reduce the LLM queries.
-                print(f"\n# {voter_count} Thinker is thinking new thoughts...")
-                unchecked_conditions = Think_thoughts(
-                    conditions, objectives, coding_assistant, coding_thread
-                )
-                checked_conditions = []
+        print("Checking if we have the answer..")
+        if_got_answer = check_answer(conditions, objectives)
+        print(if_got_answer)
+        if if_got_answer:
+            break
 
-                # Check each new condition w/ the judge - check_statment
-                for unchecked_condition in unchecked_conditions:
-                    print(f"\n# {voter_count} Judge is checking conditions...")
-                    if check_statement(
-                        conditions,
-                        unchecked_condition,
-                        n,
-                        coding_assistant,
-                        coding_thread,
-                    ):
-                        start = unchecked_condition.find("we can get: ")
-                        if start != -1:
-                            unchecked_condition = unchecked_condition[
-                                start + len("we can get: ") :
-                            ]
-                            unchecked_condition = unchecked_condition.split("Reason:")[
-                                0
-                            ]
-                        checked_conditions.append(unchecked_condition)
+    # Use the thinker to create the steps the executor should take
+    # TODO: Is this totally necessary? Probably decently so.. might be useful to make steps earlier, and potentially revise them.. hmm..
+    print(f"thinker is thinking steps...")
+    steps = create_steps(conditions, objectives)
+    log("Steps", conditions, objectives, steps)
 
-                # Add the new conditions that passed
-                conditions = conditions + checked_conditions
-                if_got_answer = check_if_got_answer(
-                    conditions, objectives, 1, judge_assistant, thread
-                )
-                if if_got_answer:
-                    break
-            print(f"\n# {voter_count} thinker is thinking steps...")
-            steps = Think_Steps(conditions, objectives, thinker_assistant, thread)
+    # TODO: Consider adding a check on the steps before executing them - one judge - good/bad, if bad ask it to fix it given feedback.
+    # Consider multiple loops here?
 
-            print(f"\n# {voter_count} Executor is trying to calculate the answer...")
-            final_answer = Execute_steps(
-                conditions, objectives, steps, coding_assistant, coding_thread
-            )
+    print(f"Executor is trying to calculate the answer...")
+    answer = execute_steps(
+        conditions, objectives, steps, coding_assistant, coding_thread
+    )
+    log("Anser: ", answer)
 
-            # Achieve one potiential answer
-            Answer = re.search(r"\\boxed\{(.*)(?=\})", final_answer)
-            if Answer:
-                Answer_boxed = Answer.group(1)
-            else:
-                Answer_boxed = "No match found"
-            possible_answers.append(Answer_boxed)
+    # TODO: consider doing a voter system here - running the executor more than once. If the first two line up we good.
+    # If they don't, do two more. If there's not a clear majority still, -
+    # TODO: (improve this step) - ask GPT which answer is the most accurate and return that?
 
-            # Once we get to the max voter count we look through the possible answers and see if they all agree. However, a better way of doing this would be
-            # To format this in the way of the halting problem.
-            # If the first let say 3 answers all agree, we're probably good. However, if they don't agree, we need to keep adding in
-            if voter_count >= min_voters:
-                counter = Counter(possible_answers)
-                most_votes = counter.most_common(1)[0][1]
-                tie_count = len(
-                    list(filter(lambda x: x[1] == most_votes, counter.items()))
-                )
+    # Extract boxed answer
 
-                tie = tie_count > 1
-                print("\nThere is a tie vote. We need to add another voter.")
-                if voter_count >= max_voters:
-                    print("\nReached maximum voter limit.")
-                    break
-        most_possible_answer, count = counter.most_common(1)[0]
-        print(f"\nThe final answer is {most_possible_answer}")
-        return most_possible_answer
-    except Exception as e:
-        print(f"Error processing file: {e}")
+    print(f"The final answer is {answer}")
+    return answer
 
 
 if __name__ == "__main__":
-    n = 1  # verification times
-    times = 5  # The upper limit of the mining times
-    min_voters = 5  # min number of voters
-    max_voters = 7  # max number of voters
-    question = "How many vertical asymptotes does the graph of $y=\\frac{2}{x^2+x-6}$ have?"  # Input your own question
+    max_times_mining_new = 1  # The upper limit of the mining times
+    question = """Square ABCD has side lengths of 13 units. Point E
+lies in the interior of the square such that AE = 5 units
+and BE = 12 units. What is the distance from E to
+side AD"""  # Input your own question
 
-    main(
-        question, times, n, min_voters, max_voters
-    )  # Assuming these are defined elsewhere
+    main(question, max_times_mining_new)
 
 
 # --------------------------------------

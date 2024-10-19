@@ -1,69 +1,42 @@
-from utils.gpt_assistants import generate_from_assistant
+from macm.helpers import list_to_numbered_string
 from utils.gpt_code_assistant import generate_from_code_assistant
-from utils.gpt import Find_Answer_from_GPT
-from prompt.prompts import *
+from utils.gpt import generate_from_gpt_with_schema
+from prompt.prompts import find_target
+from pydantic import BaseModel
 
 
-def Execute_steps(conditions, objectives, steps, assistant, thread):
+class FinalAnswer(BaseModel):
+    value: float
+
+
+def execute_steps(conditions, objectives, steps, assistant, thread):
     """
     **Uses Code Interpreter**
 
-    Ask GPT to Judge the thoughts from the thinker
+    Executes the steps given to it. Makes two calls. Once to find the target, using code interpreter,
+    and once to return the answer as formatted
+
     Input:
-    conditions,objectives,steps (List, List, Str)
+        conditions,objectives, steps (List, List, Str)
     Output:
-    final answer (Str)
+        final answer (float)
     """
-    numbered_conditions = "\n".join(
-        f"{i + 1}. {condition}" for i, condition in enumerate(conditions)
-    )
-    numbered_objective = "\n".join(
-        f"{i + 1}. {objective}" for i, objective in enumerate(objectives)
+    conditions_str = list_to_numbered_string(conditions)
+    objectives_str = list_to_numbered_string(objectives)
+    content = find_target.format(
+        Objective=objectives_str,
+        Conditions=conditions_str,
+        Steps=steps,
     )
 
-    messages = [
-        {
-            "role": "user",
-            "content": find_target.format(
-                Objective=numbered_objective,
-                Conditions=numbered_conditions,
-                Steps=steps,
-            ),
-        },
-        {"role": "user", "content": box_target},
-    ]
+    persona = "You're an executor. I need you to calculate the final result based on some conditions, objectives, and the provided steps. Follow ONLY the instructions and do not deviate"
+    response_messages = generate_from_code_assistant(
+        persona, content, assistant, thread, "executor (code)"
+    )
 
-    persona = "You're an excutor. I need you to calculate the final result based on some conditions and steps. You need to provide me the answer based on the format of the examples."
-    boxed_answer = generate_from_code_assistant(
-        persona, messages, assistant, thread, "executor (code)"
+    # Second time calling - force schema to return float. Only give access to assistant response to reduce tokens
+    response_messages.append(
+        {"role": "user", "content": "Please return ONLY the above answer as a float"},
     )
-    return boxed_answer
-
-
-# TODO: don't believe this is being used at all
-def Find_Answer(conditions, objectives, assistant, thread):
-    """
-    ask GPT to Judge the thoughts from the thinker
-    Input:
-    conditions,objectives,steps (List, List, Str)
-    Output:
-    final answer (Str)
-    """
-    messages = []
-    numbered_conditions = "\n".join(
-        f"{i + 1}. {condition}" for i, condition in enumerate(conditions)
-    )
-    numbered_objective = "\n".join(
-        f"{i + 1}. {objective}" for i, objective in enumerate(objectives)
-    )
-    message = {
-        "role": "user",
-        "content": find_target.format(
-            Objective=numbered_objective, Conditions=numbered_conditions
-        ),
-    }
-    messages.append(message)
-    final_answer = Find_Answer_from_GPT(
-        messages, max_tokens=512, model="gpt-4-1106-preview", temperature=0.7, n=1
-    )
-    return final_answer
+    final_answer = generate_from_gpt_with_schema(response_messages, FinalAnswer)
+    return final_answer.value
