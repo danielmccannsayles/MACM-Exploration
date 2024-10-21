@@ -99,8 +99,6 @@ def main(question, max_times_mining_new):
     # If they don't, do two more. If there's not a clear majority still, -
     # TODO: (improve this step) - ask GPT which answer is the most accurate and return that?
 
-    # Extract boxed answer
-
     print(f"The final answer is {answer}")
     return answer
 
