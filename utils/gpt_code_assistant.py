@@ -1,6 +1,6 @@
 import openai
 from utils.secret_key import OPENAI_KEY
-from utils.helpers import log_messages
+from utils.custom_logger import CustomLogger
 
 client = openai.OpenAI(api_key=OPENAI_KEY)
 
@@ -69,7 +69,8 @@ def generate_from_code_assistant(persona, content, assistant, thread, name):
                     content += content_item.text.value
             messages.append({"role": message.role, "content": content})
 
-        log_messages(messages, f"{name} (code_assistant)", run_steps_data)
+        CustomLogger.log_gpt(messages, f"{name} (code_assistant)")
+        CustomLogger.log_code_interpreter(run_steps_data)
 
     # Dunno if this is needed
     else:

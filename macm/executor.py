@@ -2,11 +2,7 @@ from macm.helpers import list_to_numbered_string
 from utils.gpt_code_assistant import generate_from_code_assistant
 from utils.gpt import generate_from_gpt_with_schema
 from prompt.prompts import find_target
-from pydantic import BaseModel
-
-
-class FinalAnswer(BaseModel):
-    value: float
+from macm.schemas import FinalAnswer
 
 
 def execute_steps(conditions, objectives, steps, assistant, thread):

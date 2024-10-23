@@ -11,12 +11,16 @@ from typing import Optional
 # much better than current, where we give it all the conditions.
 # TODO: We can have the judge return "True" or if it's incorrect we can correct it.
 def verify_new_condition(
-    known_conditions: list, new_condition: NewCondition, assistant, thread
+    objectives: list,
+    known_conditions: list,
+    new_condition: NewCondition,
+    assistant,
+    thread,
 ) -> Optional[NewCondition]:
     """
     **Uses code interpreter**
 
-    ask GPT to Judge the thoughts from the thinker
+    ask GPT to Judge the condition
     Input:
     Known_condtions, Condition from the thinker (List, Str)
     Output:
@@ -25,10 +29,13 @@ def verify_new_condition(
     known_conditions_str = list_to_numbered_string(known_conditions)
     indices = " and ".join(str(x) for x in new_condition.based_on_known_conditions)
 
-    new_condition_str = f"Based on Known Condition(s) {indices}, we can derive: {new_condition.new_condition}, because: {new_condition.reason}"
+    new_condition_str = f"""Based on Known Condition(s) {indices}
+    We can derive: {new_condition.new_condition}, 
+    Because: {new_condition.reason}"""
 
     content = Judge_T_F.format(
         known_conditions=known_conditions_str,
+        objectives=objectives,
         new_condition=new_condition_str,
     )
 
@@ -37,13 +44,13 @@ def verify_new_condition(
         persona, content, assistant, thread, "judge (code)"
     )
 
-    # Response messages is all the GPT responses. I don't think it includes the code stuff. Maybe would be worth including?
+    # Response messages is all the GPT responses.
     # TODO: do I need to give more context? I could also add in the original messages object. Let's see if it gets confused like this
     response_messages.append(
         {
             "role": "user",
-            "content": """Using ONLY the messages above -> 
-            Set the 'correct' response property to true if the condition under review was verified and false if not.
+            "content": """Summarize the preceding messages by: 
+            Set the 'correct' response property to true if the condition under review should be added to the known conditions, and false if not.
             Set the corrected_condition property to the suggested new condition if the above messages suggest a new condition. Else set it to None""",
         }
     )
@@ -65,6 +72,7 @@ def verify_new_condition(
         corrected_condition_str = f"Based on Known Condition(s) {indices}, we can derive: {corrected_condition.new_condition}, because: {corrected_condition.reason}"
         content = Judge_T_F.format(
             known_conditions=known_conditions_str,
+            objectives=objectives,
             new_condition=corrected_condition_str,
         )
 
@@ -73,7 +81,10 @@ def verify_new_condition(
             persona, content, assistant, thread, "judge (code)"
         )
         response_messages.append(
-            {"role": "user", "content": "Return only true or false"}
+            {
+                "role": "user",
+                "content": "Summarize the above messages by returning ONLY true or false",
+            }
         )
         verify = generate_from_gpt(response_messages)
 

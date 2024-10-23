@@ -108,7 +108,9 @@ I have some known conditions:
 {conditions}
 And I want to achieve the following objective(s):
 {objectives}.
-Please derive more (helpful, in terms of the objective) direct conditions with logical relationships from the known conditions.
+Please derive NEW conditions with direct, logical relationships from the known conditions.
+Only derive conditions that may be helpful as steps towards reaching the objective.
+
 NOTE:
 1. ONLY use the known conditions to derive new conclusions.
 The return type of your answer is a list of the following 'new conclusion' objects:
@@ -345,16 +347,16 @@ Judgement:
 
 
 Judge_T_F = """
-I have some Known condtions:
+I have some known conditions:
 {known_conditions}
-Help me to carefully verify if the following statement is correct: 
+
+and known objective:
+{objectives}
+
+Help me to carefully verify if the following statement is correct AND may be helpful in reaching the objective:
 {new_condition}
 
 You have to use the code interpreter to verify any math calculations.
-"""
-
-T_or_F_prompt = """
-Please just tell me if the statement is correct by using 'True' or 'False'.
 """
 
 

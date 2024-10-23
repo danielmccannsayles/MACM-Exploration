@@ -7,7 +7,7 @@ client = openai.OpenAI(api_key=OPENAI_KEY)
 
 def create_agents_and_thread():
     coding_assistant = client.beta.assistants.create(
-        model="gpt-4-1106-preview",
+        model="gpt-4o",  # Let's try making this 4o. It should be much cheaper
         instructions="""You are a coding assistant. You *must* use the code interpreter to help solve the question""",
         name="Expert Coder",
         tools=[{"type": "code_interpreter"}],

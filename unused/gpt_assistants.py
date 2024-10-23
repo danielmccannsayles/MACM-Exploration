@@ -1,6 +1,5 @@
 import openai
 from utils.secret_key import OPENAI_KEY
-from utils.helpers import log_messages
 
 client = openai.OpenAI(api_key=OPENAI_KEY)
 
@@ -57,7 +56,6 @@ def generate_from_assistant(prompts, assistant, thread, name):
                     thread_id=thread.id, run_id=run.id
                 )
                 run_steps_data = [step.model_dump() for step in run_steps.data]
-                log_messages(all_messages, name, run_steps_data)
 
                 # Get response
                 try:

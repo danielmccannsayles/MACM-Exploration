@@ -9,21 +9,12 @@ from macm.thinker import (
     new_conditions_from_existing,
     create_steps,
 )
-from utils.assistants import create_agents_and_thread
+from utils.create_assistant import create_agents_and_thread
+from utils.custom_logger import CustomLogger
+from macm.helpers import conditions_objectives_to_string, list_to_numbered_string
 
 
-def log(title, *args):
-    content = []
-    for arg in args:
-        content.append(str(arg))
-    content_str = "\n".join(content)
-
-    file_path = f"./output/messages.md"
-    with open(file_path, "a") as f:
-        f.write(f"======\n## {title}\n #{content_str} \n")
-
-
-def main(question, max_times_mining_new):
+def main(question, max_times_mining_new, coding_assistant, coding_thread):
     """
     Input question and get the final answer from muti-Agent got
     Input:
@@ -31,9 +22,6 @@ def main(question, max_times_mining_new):
     Output:
     final answer (Str)
     """
-
-    # Create the agents
-    coding_assistant, coding_thread = create_agents_and_thread()
 
     ### The actual coding
 
@@ -44,15 +32,18 @@ def main(question, max_times_mining_new):
 
     print(f"Extracting conditions and objective(s) from problem..")
     conditions, objectives = extract_from_original(question)
-    log("Extracted from problem, (conditions, objectives)", conditions, objectives)
+    c_str, o_str = conditions_objectives_to_string(conditions, objectives)
+    CustomLogger.default_log(
+        "Extracted from problem, (conditions, objectives)", c_str, o_str
+    )
 
     # New condition mining loop has a max # of tries
     for i in range(max_times_mining_new):
         print(f"Mining new conditions from existing ({i+1}/{max_times_mining_new})")
         unchecked_conditions = new_conditions_from_existing(conditions, objectives)
-        log(
+        CustomLogger.default_log(
             f"Unchecked Conditions ({i+1}/{max_times_mining_new})",
-            unchecked_conditions,
+            list_to_numbered_string(unchecked_conditions),
         )
 
         verified_conditions = []
@@ -63,6 +54,7 @@ def main(question, max_times_mining_new):
 
             # Verifies new condition. If it's wrong, tries to correct. Verifies that corrected condition. If wrong again, returns None
             verified = verify_new_condition(
+                objectives,
                 conditions,
                 unchecked,
                 coding_assistant,
@@ -73,6 +65,9 @@ def main(question, max_times_mining_new):
 
         # Add the new verified conditions to the exisiting conditions!
         conditions += verified_conditions
+        CustomLogger.default_log(
+            "Valid conditions:", list_to_numbered_string(conditions)
+        )
 
         print("Checking if we have the answer..")
         if_got_answer = check_answer(conditions, objectives)
@@ -84,7 +79,7 @@ def main(question, max_times_mining_new):
     # TODO: Is this totally necessary? Probably decently so.. might be useful to make steps earlier, and potentially revise them.. hmm..
     print(f"thinker is thinking steps...")
     steps = create_steps(conditions, objectives)
-    log("Steps", conditions, objectives, steps)
+    CustomLogger.default_log("Steps", conditions, objectives, steps)
 
     # TODO: Consider adding a check on the steps before executing them - one judge - good/bad, if bad ask it to fix it given feedback.
     # Consider multiple loops here?
@@ -93,7 +88,7 @@ def main(question, max_times_mining_new):
     answer = execute_steps(
         conditions, objectives, steps, coding_assistant, coding_thread
     )
-    log("Anser: ", answer)
+    CustomLogger.default_log("Anser: ", answer)
 
     # TODO: consider doing a voter system here - running the executor more than once. If the first two line up we good.
     # If they don't, do two more. If there's not a clear majority still, -
@@ -104,13 +99,16 @@ def main(question, max_times_mining_new):
 
 
 if __name__ == "__main__":
+    CustomLogger.update_path("messages")  # default
     max_times_mining_new = 1  # The upper limit of the mining times
     question = """Square ABCD has side lengths of 13 units. Point E
 lies in the interior of the square such that AE = 5 units
 and BE = 12 units. What is the distance from E to
 side AD"""  # Input your own question
 
-    main(question, max_times_mining_new)
+    # create agents
+    coding_assistant, coding_thread = create_agents_and_thread()
+    main(question, max_times_mining_new, coding_assistant, coding_thread)
 
 
 # --------------------------------------

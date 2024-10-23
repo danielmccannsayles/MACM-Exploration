@@ -31,9 +31,7 @@ def test_gpt(assistant, thread, message):
             )
             # Have to get data and then do this annoying thing
             run_steps_data = [step.model_dump() for step in run_steps.data]
-            log_messages(
-                all_messages, "test", run_steps_data
-            )  # TODO: uncomment logging
+            log_messages(all_messages, "test", run_steps_data)
 
             try:
                 Assistant_response = all_messages.data[0].content[0].text.value

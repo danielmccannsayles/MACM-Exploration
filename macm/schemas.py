@@ -2,6 +2,10 @@ from pydantic import BaseModel
 from typing import Optional
 
 
+class FinalAnswer(BaseModel):
+    value: float
+
+
 class ConditionsAndObjectives(BaseModel):
     conditions: list[str]
     objectives: list[str]
