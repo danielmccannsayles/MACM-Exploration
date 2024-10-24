@@ -1,7 +1,7 @@
-from macm.helpers import list_to_numbered_string
+from utils.to_string_helpers import list_to_numbered_string
 from utils.gpt_code_assistant import generate_from_code_assistant
 from utils.gpt import generate_from_gpt_with_schema
-from prompt.prompts import find_target
+from chains.prompt_staging import find_target
 from macm.schemas import FinalAnswer
 
 

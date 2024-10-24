@@ -1,7 +1,7 @@
 import openai
 import json
 from utils.secret_key import OPENAI_KEY
-from utils.helpers import log_messages
+from utils.to_string_helpers import log_messages
 
 client = openai.OpenAI(api_key=OPENAI_KEY)
 

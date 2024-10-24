@@ -13,7 +13,6 @@ class CustomLogger:
     @classmethod
     def update_path(self, file_path):
         dirs_to_make = os.path.dirname(file_path)  # handle any intermediate dirs
-        print(dirs_to_make)
 
         if dirs_to_make:
             os.makedirs(

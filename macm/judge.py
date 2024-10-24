@@ -1,8 +1,11 @@
 from utils.gpt_code_assistant import generate_from_code_assistant
 from utils.gpt import generate_from_gpt_with_schema, generate_from_gpt
-from macm.helpers import list_to_numbered_string, conditions_objectives_to_string
+from utils.to_string_helpers import (
+    list_to_numbered_string,
+    conditions_objectives_to_string,
+)
 from macm.schemas import NewCondition, CorrectOrCorrectedCondition, TrueOrFalse
-from prompt.prompts import *
+from chains.prompt_staging import Judge_if_got_Answer, Judge_T_F, judge_if_steps_correct
 from typing import Optional
 
 
@@ -130,3 +133,23 @@ def check_answer(conditions, objectives):
 
     do_we_have_answer = generate_from_gpt_with_schema(messages, TrueOrFalse)
     return do_we_have_answer.value
+
+
+def verify_steps(steps, objectives):
+    """
+    Given a list of verified steps, check if they are good
+    """
+    messages = [
+        {
+            "role": "user",
+            "content": judge_if_steps_correct.format(
+                steps=steps, objectives=objectives
+            ),
+        }
+    ]
+    verify = generate_from_gpt(messages)
+
+    if "False" in verify or "false" in verify:
+        return False
+    else:
+        return True
