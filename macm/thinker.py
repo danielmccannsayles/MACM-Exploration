@@ -63,11 +63,17 @@ def new_conditions_from_existing(conditions, objectives):
         },
     ]
     new_conditions = generate_from_gpt_with_schema(messages, NewConditions)
-    return new_conditions.value
+
+    # Not sure if this is neccessary but want to avoid errors
+    if not new_conditions.value:
+        new_conditions.value = []
+
+    # Manually make sure that we only produce 3 conditions. This was added in main 3, reasoning being - adding less conditions at a time prevents contradictory conclusions + allows for more variability depending on problem difficulty
+    return new_conditions.value[0:3]
 
 
 # TODO: should I use json schema to force this into a list? Probably not needed..
-def create_steps(conditions, objectives) -> str:
+def create_steps(conditions, objectives, optional_comments="") -> str:
     """
     Create steps from list of conditions and objectives
     """
@@ -79,7 +85,9 @@ def create_steps(conditions, objectives) -> str:
             {
                 "role": "user",
                 "content": Determine_Steps.format(
-                    Known_conditions=conditions_str, Objective=objectives_str
+                    Known_conditions=conditions_str,
+                    Objective=objectives_str,
+                    optional_comments=optional_comments,
                 ),
             }
         ]

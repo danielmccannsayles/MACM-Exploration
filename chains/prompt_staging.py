@@ -4,5 +4,5 @@
 ### Uncomment whever one we currently want
 
 # from chains.main1.prompts import *
-
-from chains.main2.prompts import *
+# from chains.main2.prompts import *
+from chains.main3.prompts import *

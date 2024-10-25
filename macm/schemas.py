@@ -2,6 +2,15 @@ from pydantic import BaseModel
 from typing import Optional
 
 
+class RemoveConditions(BaseModel):
+    indices: list[int]
+
+
+class AcceptOrRejectSteps(BaseModel):
+    acccept: bool
+    reason: str
+
+
 class FinalAnswer(BaseModel):
     value: float
 

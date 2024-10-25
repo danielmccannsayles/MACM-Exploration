@@ -1,5 +1,10 @@
 from macm.executor import execute_steps
-from macm.judge import verify_new_condition, check_answer, verify_steps
+from macm.judge import (
+    verify_new_condition,
+    check_answer,
+    verify_steps,
+    double_check_conditions,
+)
 from macm.thinker import (
     extract_from_original,
     new_conditions_from_existing,
@@ -14,13 +19,13 @@ from utils.to_string_helpers import (
 
 def main(question, max_times_mining_new, coding_assistant, coding_thread):
     """
-    Main 2 :)
+    Main 3 :)
     """
 
     # TODO: I'd like to have GPT rate how hard it thinks the problem is at different steps. And then dynamically adjust the iterations we do.
     # This seems like with some tweaking it would really improve the efficiency
 
-    # TODO: do we want to put a loop around this? And check that the questions analyzed by the thinker are correct?
+    # TODO: do we want to put a loop around the conition extraction? And check that the questions analyzed by the thinker are correct?
 
     print(f"Extracting conditions and objective(s) from problem..")
     conditions, objectives = extract_from_original(question)
@@ -67,30 +72,45 @@ def main(question, max_times_mining_new, coding_assistant, coding_thread):
         if if_got_answer:
             break
 
+    # TODO: Not sure how to make this work yet.
+    # We should have a list of conditions that are ready. Let's check and see if any contradict
+    # This will return the conditions if they are good, and remove any that contradict
+    # conditions = double_check_conditions(conditions)
+
     # Use the thinker to create the steps the executor should take
     # TODO: Is this totally necessary? Probably decently so.. might be useful to make steps earlier, and potentially revise them.. hmm..
     print(f"thinker is thinking steps...")
     steps = create_steps(conditions, objectives)
-    CustomLogger.default_log("Steps", conditions, objectives, steps)
+    CustomLogger.default_log(
+        "Conditions, Objectives, Steps",
+        list_to_numbered_string(conditions),
+        list_to_numbered_string(objectives),
+        steps,
+    )
 
     # Check if steps are accurate - 2 retries.
     for _ in range(2):
-        verify = verify_steps(steps, objectives)
-        if verify:
+        accept_or_reject = verify_steps(steps, objectives)
+        if accept_or_reject.acccept:
             break
 
-        steps = create_steps(conditions, objectives)
+        # Pass in the reason for failure
+        steps = create_steps(
+            conditions,
+            objectives,
+            f"The last step generation process failed becase:\n {accept_or_reject.reason}",
+        )
 
-    # TODO: should we do multiple loops of this?
-
+    # TODO: should we do multiple loops of execution?
     print(f"Executor is trying to calculate the answer...")
     answer = execute_steps(
         conditions, objectives, steps, coding_assistant, coding_thread
     )
-    CustomLogger.default_log("Anser: ", answer)
+    CustomLogger.default_log("Generated Answer: ", answer)
 
     # TODO: consider doing a voter system here - running the executor more than once. If the first two line up we good.
     # If they don't, do two more. If there's not a clear majority still, -
     # TODO: (improve this step) - ask GPT which answer is the most accurate and return that?
+
     print(f"The final answer is {answer}")
     return answer

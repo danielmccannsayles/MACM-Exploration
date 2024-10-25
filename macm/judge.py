@@ -4,8 +4,19 @@ from utils.to_string_helpers import (
     list_to_numbered_string,
     conditions_objectives_to_string,
 )
-from macm.schemas import NewCondition, CorrectOrCorrectedCondition, TrueOrFalse
-from chains.prompt_staging import Judge_if_got_Answer, Judge_T_F, judge_if_steps_correct
+from macm.schemas import (
+    NewCondition,
+    CorrectOrCorrectedCondition,
+    TrueOrFalse,
+    AcceptOrRejectSteps,
+    RemoveConditions,
+)
+from chains.prompt_staging import (
+    Judge_if_got_Answer,
+    Judge_T_F,
+    judge_if_steps_correct,
+    are_conditions_contradictory,
+)
 from typing import Optional
 
 
@@ -135,21 +146,93 @@ def check_answer(conditions, objectives):
     return do_we_have_answer.value
 
 
-def verify_steps(steps, objectives):
+def verify_steps(steps, objectives) -> AcceptOrRejectSteps:
     """
-    Given a list of verified steps, check if they are good
+    Given a list of verified steps, check if they are good.
+    Returns steps as a string, and an accept_or_reject object
     """
+    objectives_str = list_to_numbered_string(objectives)
     messages = [
         {
             "role": "user",
             "content": judge_if_steps_correct.format(
-                steps=steps, objectives=objectives
+                steps=steps, objectives=objectives_str
             ),
         }
     ]
-    verify = generate_from_gpt(messages)
+    explanation = generate_from_gpt(messages)
 
-    if "False" in verify or "false" in verify:
-        return False
+    # Give it all the context it could need
+    messages.extend(
+        [
+            {"role": "assistant", "content": explanation},
+            {
+                "role": "user",
+                "content": """Given the above explation on whether or not the steps should be accepted. Set 'accept' to true to if they should be, false if not.
+
+            For 'reason', summarize the explanation above into a list of DOs and DO NOTs. Be explicit - refer to things in complete sentences - if these steps are not accepted,
+            this reason will be used to help rewrite the steps, however the one writing the steps will not have access to the failed steps.
+            Do not refer to specific steps. Instead refer to specific logic and it's correction or validation. 
+            The reason should look something like this:
+
+            DO NOT use the pythagorean theorem to calculate AB BECAUSE AB is not part of a valid triangle
+            DO use __ theorem to calculate AB BECAUSE AB is __
+            DO ..
+            DO NOT...
+            ...
+            """,
+            },
+        ]
+    )
+    accept_or_reject = generate_from_gpt_with_schema(messages, AcceptOrRejectSteps)
+
+    return accept_or_reject
+
+
+def double_check_conditions(conditions):
+    """
+    Given the list of known conditions, check to see if any are contradictory
+    If any are, we can handle those indices
+    """
+    conditions_str = list_to_numbered_string(conditions)
+    messages = [
+        {
+            "role": "user",
+            "content": are_conditions_contradictory.format(conditions=conditions_str),
+        }
+    ]
+    analysis = generate_from_gpt(messages)
+
+    messages.extend(
+        [
+            {"role": "assistant", "content": analysis},
+            {
+                "role": "user",
+                "content": """Given the above analysis on whether any conditions are contradictory. 
+            If there are any conditions that should be removed, return their index (starting at 1, given above).
+
+            The return type should be a list of indices corresponding to conditions that should be REMOVED.
+            If there are none to be removed, that's fine! Return an empty list.
+            """,
+            },
+        ]
+    )
+    remove_conditions = generate_from_gpt_with_schema(messages, RemoveConditions)
+
+    if remove_conditions.indices:
+        # Conver to 0 based indices
+        zero_based = [i - 1 for i in remove_conditions.indices]
+        # Remove in reverse order to avoid messing up indices
+        sorted_indices = sorted(zero_based, reverse=True)
+        # Remove any erroneous indices (outside of 0-length)
+        indices_to_remove = [i for i in sorted_indices if 0 <= i < len(conditions)]
+
+        new_conditions = [
+            condition
+            for i, condition in enumerate(conditions)
+            if i not in indices_to_remove
+        ]
+        return new_conditions
+
     else:
-        return True
+        return conditions

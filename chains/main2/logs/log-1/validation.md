@@ -1,6 +1,6 @@
 ======
 ## Results
- Problem 0 -> correct correct incorrect 
+Problem 0 -> correct correct incorrect 
 Problem 1 -> incorrect incorrect incorrect 
 Problem 2 -> incorrect correct correct 
 Problem 3 -> incorrect incorrect correct
