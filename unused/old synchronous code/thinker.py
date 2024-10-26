@@ -1,4 +1,4 @@
-from utils.async_gpt import agenerate_from_gpt, agenerate_from_gpt_with_schema
+from utils.gpt import generate_from_gpt, generate_from_gpt_with_schema
 from utils.to_string_helpers import conditions_objectives_to_string
 from macm.schemas import ConditionsAndObjectives, NewConditions
 from chains.prompt_staging import (
@@ -15,7 +15,7 @@ from chains.prompt_staging import (
 
 # TODO: Is there a better way to handle multi-step objectives? Kinda like steps? Would be cool to split the work up into some discreet steps.
 # ... something to think about
-async def extract_from_original(question):
+def extract_from_original(question):
     """
     Extract conditions and objective(s) from the original question
     Args:
@@ -35,7 +35,7 @@ async def extract_from_original(question):
             ),
         },
     ]
-    conditions_and_objectives = await agenerate_from_gpt_with_schema(
+    conditions_and_objectives = generate_from_gpt_with_schema(
         messages, ConditionsAndObjectives
     )
 
@@ -43,7 +43,7 @@ async def extract_from_original(question):
 
 
 # TODO: For some rason I thought this used to use code. I can't find any supporting evidence of this in the logs though, and intuitively idk why it would
-async def new_conditions_from_existing(conditions, objectives) -> NewConditions:
+def new_conditions_from_existing(conditions, objectives):
     """
     Come up with new conditions from the existing conditions and the objective(s)
     """
@@ -62,7 +62,7 @@ async def new_conditions_from_existing(conditions, objectives) -> NewConditions:
             ),
         },
     ]
-    new_conditions = await agenerate_from_gpt_with_schema(messages, NewConditions)
+    new_conditions = generate_from_gpt_with_schema(messages, NewConditions)
 
     # Not sure if this is neccessary but want to avoid errors
     if not new_conditions.value:
@@ -73,14 +73,14 @@ async def new_conditions_from_existing(conditions, objectives) -> NewConditions:
 
 
 # TODO: should I use json schema to force this into a list? Probably not needed..
-async def create_steps(conditions, objectives, optional_comments="") -> str:
+def create_steps(conditions, objectives, optional_comments="") -> str:
     """
     Create steps from list of conditions and objectives
     """
     conditions_str, objectives_str = conditions_objectives_to_string(
         conditions, objectives
     )
-    steps = await agenerate_from_gpt(
+    steps = generate_from_gpt(
         [
             {
                 "role": "user",

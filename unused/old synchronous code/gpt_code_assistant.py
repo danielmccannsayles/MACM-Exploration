@@ -4,11 +4,12 @@ from utils.secret_key import OPENAI_KEY
 client = openai.OpenAI(api_key=OPENAI_KEY)
 
 
-def generate_from_code_assistant(persona, content, assistant, thread):
+def generate_from_code_assistant(persona, content, assistant, thread, name):
     """
     Clears all current thread but end, to preserve thread. Only used with coding_asssistant and coding_thread
 
     Args:
+
         Content: content (str)
         Name: name to show when logging
 
@@ -49,6 +50,12 @@ def generate_from_code_assistant(persona, content, assistant, thread):
         run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
 
     if run.status == "completed":
+        # Get the run steps - used to log code
+        run_steps = client.beta.threads.runs.steps.list(
+            thread_id=thread.id, run_id=run.id
+        )
+        run_steps_data = [step.model_dump() for step in run_steps.data]
+
         # Get all messages and turn into obj format
         thread_messages = client.beta.threads.messages.list(
             thread_id=thread.id, order="asc"
@@ -60,6 +67,9 @@ def generate_from_code_assistant(persona, content, assistant, thread):
                 if hasattr(content_item, "text"):
                     content += content_item.text.value
             messages.append({"role": message.role, "content": content})
+
+        CustomLogger.log_gpt(messages, f"{name} (code_assistant)")
+        CustomLogger.log_code_interpreter(run_steps_data)
 
     # Dunno if this is needed
     else:

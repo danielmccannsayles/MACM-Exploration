@@ -1,5 +1,5 @@
 from utils.gpt_code_assistant import generate_from_code_assistant
-from utils.async_gpt import agenerate_from_gpt_with_schema, agenerate_from_gpt
+from utils.gpt import generate_from_gpt_with_schema, generate_from_gpt
 from utils.to_string_helpers import (
     list_to_numbered_string,
     conditions_objectives_to_string,
@@ -24,7 +24,7 @@ from typing import Optional
 # TODO: onnly pass in the conditions that are supposed to support the conclusion - this may reduce accuracy, but it tests whether this pattern actually works
 # much better than current, where we give it all the conditions.
 # TODO: We can have the judge return "True" or if it's incorrect we can correct it.
-async def verify_new_condition(
+def verify_new_condition(
     objectives: list,
     known_conditions: list,
     new_condition: NewCondition,
@@ -55,7 +55,7 @@ async def verify_new_condition(
 
     persona = "You're a judge. I need you to make judgments on some statements. "
     response_messages = generate_from_code_assistant(
-        persona, content, assistant, thread
+        persona, content, assistant, thread, "judge (code)"
     )
 
     # Response messages is all the GPT responses.
@@ -69,7 +69,7 @@ async def verify_new_condition(
         }
     )
 
-    correct_or_corrected_condition = await agenerate_from_gpt_with_schema(
+    correct_or_corrected_condition = generate_from_gpt_with_schema(
         response_messages, CorrectOrCorrectedCondition
     )
 
@@ -92,7 +92,7 @@ async def verify_new_condition(
 
         persona = "You're a judge. I need you to make judgments on some statements. "
         response_messages = generate_from_code_assistant(
-            persona, content, assistant, thread
+            persona, content, assistant, thread, "judge (code)"
         )
         response_messages.append(
             {
@@ -100,7 +100,7 @@ async def verify_new_condition(
                 "content": "Summarize the above messages by returning ONLY true or false",
             }
         )
-        verify = await agenerate_from_gpt(response_messages)
+        verify = generate_from_gpt(response_messages)
 
         # If this still isn't correct, give up on this condition completely
         if "False" in verify or "false" in verify:
@@ -111,7 +111,7 @@ async def verify_new_condition(
     return None
 
 
-async def check_answer(conditions, objectives):
+def check_answer(conditions, objectives):
     """
     Ask GPT to Judge if we already got the answer
     Input:
@@ -132,7 +132,7 @@ async def check_answer(conditions, objectives):
         },
     ]
 
-    response = await agenerate_from_gpt(messages)
+    response = generate_from_gpt(messages)
 
     messages = [
         {"role": "assistant", "content": response},
@@ -142,11 +142,11 @@ async def check_answer(conditions, objectives):
         },
     ]
 
-    do_we_have_answer = await agenerate_from_gpt_with_schema(messages, TrueOrFalse)
+    do_we_have_answer = generate_from_gpt_with_schema(messages, TrueOrFalse)
     return do_we_have_answer.value
 
 
-async def verify_steps(steps, objectives) -> AcceptOrRejectSteps:
+def verify_steps(steps, objectives) -> AcceptOrRejectSteps:
     """
     Given a list of verified steps, check if they are good.
     Returns steps as a string, and an accept_or_reject object
@@ -160,7 +160,7 @@ async def verify_steps(steps, objectives) -> AcceptOrRejectSteps:
             ),
         }
     ]
-    explanation = await agenerate_from_gpt(messages)
+    explanation = generate_from_gpt(messages)
 
     # Give it all the context it could need
     messages.extend(
@@ -184,14 +184,12 @@ async def verify_steps(steps, objectives) -> AcceptOrRejectSteps:
             },
         ]
     )
-    accept_or_reject = await agenerate_from_gpt_with_schema(
-        messages, AcceptOrRejectSteps
-    )
+    accept_or_reject = generate_from_gpt_with_schema(messages, AcceptOrRejectSteps)
 
     return accept_or_reject
 
 
-async def double_check_conditions(conditions):
+def double_check_conditions(conditions):
     """
     Given the list of known conditions, check to see if any are contradictory
     If any are, we can handle those indices
@@ -203,7 +201,7 @@ async def double_check_conditions(conditions):
             "content": are_conditions_contradictory.format(conditions=conditions_str),
         }
     ]
-    analysis = await agenerate_from_gpt(messages)
+    analysis = generate_from_gpt(messages)
 
     messages.extend(
         [
@@ -219,7 +217,7 @@ async def double_check_conditions(conditions):
             },
         ]
     )
-    remove_conditions = await agenerate_from_gpt_with_schema(messages, RemoveConditions)
+    remove_conditions = generate_from_gpt_with_schema(messages, RemoveConditions)
 
     if remove_conditions.indices:
         # Conver to 0 based indices

@@ -1,11 +1,11 @@
 from utils.to_string_helpers import list_to_numbered_string
 from utils.gpt_code_assistant import generate_from_code_assistant
-from utils.async_gpt import agenerate_from_gpt_with_schema
+from utils.gpt import generate_from_gpt_with_schema
 from chains.prompt_staging import find_target
 from macm.schemas import FinalAnswer
 
 
-async def execute_steps(conditions, objectives, steps, assistant, thread):
+def execute_steps(conditions, objectives, steps, assistant, thread):
     """
     **Uses Code Interpreter**
 
@@ -27,12 +27,12 @@ async def execute_steps(conditions, objectives, steps, assistant, thread):
 
     persona = "You're an executor. I need you to calculate the final result based on some conditions, objectives, and the provided steps. Follow ONLY the instructions and do not deviate"
     response_messages = generate_from_code_assistant(
-        persona, content, assistant, thread
+        persona, content, assistant, thread, "executor (code)"
     )
 
     # Second time calling - force schema to return float. Only give access to assistant response to reduce tokens
     response_messages.append(
         {"role": "user", "content": "Please return ONLY the above answer as a float"},
     )
-    final_answer = await agenerate_from_gpt_with_schema(response_messages, FinalAnswer)
+    final_answer = generate_from_gpt_with_schema(response_messages, FinalAnswer)
     return final_answer.value

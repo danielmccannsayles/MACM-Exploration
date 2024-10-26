@@ -1,0 +1,1 @@
+After main 3 I realized I needed to shorten this time if I wanted to iterate faster. So I switched to async. Here are the synchronous functions that got replaced
