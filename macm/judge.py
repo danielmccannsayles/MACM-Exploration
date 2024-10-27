@@ -1,6 +1,6 @@
 from utils.gpt_code_assistant import generate_from_code_assistant
 from utils.async_gpt import agenerate_from_gpt_with_schema, agenerate_from_gpt
-from utils.to_string_helpers import (
+from utils.helpers import (
     list_to_numbered_string,
     conditions_objectives_to_string,
 )

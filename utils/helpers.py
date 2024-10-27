@@ -1,3 +1,6 @@
+from datetime import datetime
+
+
 def list_to_numbered_string(arr: list) -> str:
     """Turn a list into a numbered string"""
     return "\n".join(f"{i + 1}. {item}" for i, item in enumerate(arr))
@@ -8,3 +11,8 @@ def conditions_objectives_to_string(
 ) -> tuple[str, str]:
     """This is done so many times I just made it a function"""
     return list_to_numbered_string(conditions), list_to_numbered_string(objectives)
+
+
+def get_current_time():
+    """Make this a function to avoid nesting f strings :)"""
+    return datetime.now().strftime("%H:%M:%S")

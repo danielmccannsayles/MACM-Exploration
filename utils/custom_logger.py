@@ -1,14 +1,24 @@
 import os
 from openai.types.chat import ChatCompletionMessage
+from utils.helpers import get_current_time
 
 
 # Uses Class methods to avoid creating an instance.
 class CustomLogger:
     _current_file = "default"
     _log_directory = "./output/"
+    _console_log = "console"
 
     # Make sure the log directory exists (at class init)
     os.makedirs(_log_directory, exist_ok=True)
+
+    @classmethod
+    def print(self, message):
+        """Log messages into console.md. Replacing print() statement"""
+        file_path = f"{self._log_directory}{self._console_log}.md"
+
+        with open(file_path, "a") as f:
+            f.write(f"{get_current_time()}: {message}\n")
 
     @classmethod
     def update_path(self, file_path):

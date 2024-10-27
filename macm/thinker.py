@@ -1,5 +1,5 @@
 from utils.async_gpt import agenerate_from_gpt, agenerate_from_gpt_with_schema
-from utils.to_string_helpers import conditions_objectives_to_string
+from utils.helpers import conditions_objectives_to_string
 from macm.schemas import ConditionsAndObjectives, NewConditions
 from chains.prompt_staging import (
     extract_conditions_objectives_from_problem,

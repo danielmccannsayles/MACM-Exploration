@@ -1,6 +1,7 @@
 import openai
 from openai.types.chat import ChatCompletionMessage
 from utils.secret_key import OPENAI_KEY
+from utils.custom_logger import CustomLogger
 from pydantic import BaseModel
 import backoff
 from openai import APIConnectionError
@@ -18,19 +19,31 @@ timeout_settings = httpx.Timeout(
 client = openai.AsyncOpenAI(api_key=OPENAI_KEY, timeout=timeout_settings)
 
 
+def backoff_hdlr(details):
+    CustomLogger.print(
+        "Backing off {wait:0.1f} seconds after {tries} tries "
+        "calling function {target} with args {args} and kwargs "
+        "{kwargs}".format(**details)
+    )
+
+
+def giveup_hdlr(details):
+    CustomLogger.print(
+        "Failed after {tries} tries "
+        "calling function {target} with args {args} and kwargs "
+        "{kwargs}".format(**details)
+    )
+
+
 @backoff.on_exception(
     backoff.expo,  # Exponential backoff
     APIConnectionError,  # Retry on connection errors
     max_tries=5,  # Retry up to 5 times
     jitter=backoff.full_jitter,  # Add jitter to reduce likelihood of retry collisions
-    on_backoff=lambda details: print(
-        f"Retrying ({details.get('tries','n/a')} of {details.get('max_tries','n/a')}) due to {details.get('exception','n/a')}."
-    ),
-    on_giveup=lambda details: print(
-        f"Failed after {details.get('tries', 'n/a')} attempts: {details.get('exception','n/a')}"
-    ),
+    on_backoff=backoff_hdlr,
+    on_giveup=giveup_hdlr,
 )
-async def agenerate_from_gpt(messages: list[ChatCompletionMessage], title="Normal GPT"):
+async def agenerate_from_gpt(messages: list[ChatCompletionMessage]):
     """
     Messages:
         ChatCompletionMessage ([{"role": "", "content": ""}, {"role": "", "content": ""}])
@@ -47,15 +60,11 @@ async def agenerate_from_gpt(messages: list[ChatCompletionMessage], title="Norma
     APIConnectionError,  # Retry on connection errors
     max_tries=5,  # Retry up to 5 times
     jitter=backoff.full_jitter,  # Add jitter to reduce likelihood of retry collisions
-    on_backoff=lambda details: print(
-        f"Retrying ({details.get('tries','n/a')} of {details.get('max_tries','n/a')}) due to {details.get('exception','n/a')}."
-    ),
-    on_giveup=lambda details: print(
-        f"Failed after {details.get('tries', 'n/a')} attempts: {details.get('exception','n/a')}"
-    ),
+    on_backoff=backoff_hdlr,
+    on_giveup=giveup_hdlr,
 )
 async def agenerate_from_gpt_with_schema(
-    messages: list[ChatCompletionMessage], schema: BaseModel, title="Schema GPT"
+    messages: list[ChatCompletionMessage], schema: BaseModel
 ):
     """
     Return a response matching a schema (pydantic BaseModel)

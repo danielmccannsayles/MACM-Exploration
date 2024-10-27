@@ -10,17 +10,12 @@ from macm.thinker import (
     new_conditions_from_existing,
     create_steps,
 )
-from utils.to_string_helpers import (
+from utils.helpers import (
     conditions_objectives_to_string,
     list_to_numbered_string,
 )
 from utils.async_logger import AsyncLogger
-from datetime import datetime
-
-
-def get_time():
-    """Make this a function to avoid nesting f strings :)"""
-    return datetime.now().strftime("%H:%M:%S")
+from utils.custom_logger import CustomLogger
 
 
 async def main4(
@@ -31,7 +26,7 @@ async def main4(
     """
 
     AsyncLogger.add_message(log_path, "## Begin")
-    print(f"Starting {log_path} at {get_time()}")
+    CustomLogger.print(f"Starting {log_path}")
 
     conditions, objectives = await extract_from_original(question)
     c_str, o_str = conditions_objectives_to_string(conditions, objectives)
@@ -85,7 +80,7 @@ async def main4(
         if if_got_answer:
             break
 
-    print(f"finished mining conditions ({log_path}) at {get_time()}")
+    CustomLogger.print(f"finished mining conditions ({log_path})")
 
     # TODO: Not sure how to make this work yet.
     # We should have a list of conditions that are ready. Let's check and see if any contradict
@@ -133,5 +128,5 @@ async def main4(
     # Flush out one message
     await AsyncLogger.flush_one(log_path)
 
-    print(f"Finished {log_path} at {get_time()}: the final answer is {answer}")
+    CustomLogger.print(f"Finished {log_path}: the final answer is {answer}")
     return answer
