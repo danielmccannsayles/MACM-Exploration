@@ -128,5 +128,7 @@ async def main4(
     # Flush out one message
     await AsyncLogger.flush_one(log_path)
 
-    CustomLogger.print(f"Finished {log_path}: the final answer is {answer}")
+    CustomLogger.print(
+        f"Finished {log_path} in ({CustomLogger.elapsed_time()}): the final answer is {answer}"
+    )
     return answer

@@ -1,6 +1,7 @@
 import os
 from openai.types.chat import ChatCompletionMessage
 from utils.helpers import get_current_time
+from datetime import datetime
 
 
 # Uses Class methods to avoid creating an instance.
@@ -8,9 +9,25 @@ class CustomLogger:
     _current_file = "default"
     _log_directory = "./output/"
     _console_log = "console"
+    _start_time = 0
 
     # Make sure the log directory exists (at class init)
     os.makedirs(_log_directory, exist_ok=True)
+
+    @classmethod
+    def start_watch(self):
+        """Start beginning time & log message"""
+        self._start_time = datetime.now()
+        self.print("Watch started")
+
+    @classmethod
+    def elapsed_time(self):
+        """Time since start_watch"""
+        now = datetime.now()
+        elapsed = now - self._start_time
+        return (datetime.min + elapsed).strftime(
+            "%H:%M:%S"
+        )  # Convert timedelta to datetime
 
     @classmethod
     def print(self, message):
