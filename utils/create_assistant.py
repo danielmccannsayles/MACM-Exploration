@@ -1,8 +1,15 @@
 import openai
 from utils.secret_key import OPENAI_KEY
-
+from pydantic import BaseModel
+from openai.types.beta.assistant import Assistant
+from openai.types.beta.thread import Thread
 
 client = openai.OpenAI(api_key=OPENAI_KEY)
+
+
+class WorkSpace(BaseModel):
+    assistant: Assistant
+    thread: Thread
 
 
 def create_agents_and_thread():
@@ -22,4 +29,4 @@ def create_agents_and_thread():
         ],
     )
 
-    return (coding_assistant, coding_thread)
+    return WorkSpace(assistant=coding_assistant, thread=coding_thread)

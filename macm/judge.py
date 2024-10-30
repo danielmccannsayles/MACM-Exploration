@@ -1,4 +1,4 @@
-from utils.gpt_code_assistant import generate_from_code_assistant
+from utils.gpt_async_assistant import agenerate_from_code_assistant
 from utils.async_gpt import agenerate_from_gpt_with_schema, agenerate_from_gpt
 from utils.helpers import (
     list_to_numbered_string,
@@ -54,7 +54,7 @@ async def verify_new_condition(
     )
 
     persona = "You're a judge. I need you to make judgments on some statements. "
-    response_messages = generate_from_code_assistant(
+    response_messages = await agenerate_from_code_assistant(
         persona, content, assistant, thread
     )
 
@@ -91,7 +91,7 @@ async def verify_new_condition(
         )
 
         persona = "You're a judge. I need you to make judgments on some statements. "
-        response_messages = generate_from_code_assistant(
+        response_messages = await agenerate_from_code_assistant(
             persona, content, assistant, thread
         )
         response_messages.append(

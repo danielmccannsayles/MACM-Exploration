@@ -1,5 +1,5 @@
 from utils.helpers import list_to_numbered_string
-from utils.gpt_code_assistant import generate_from_code_assistant
+from utils.gpt_async_assistant import agenerate_from_code_assistant
 from utils.async_gpt import agenerate_from_gpt_with_schema
 from chains.prompt_staging import find_target
 from macm.schemas import FinalAnswer
@@ -26,7 +26,7 @@ async def execute_steps(conditions, objectives, steps, assistant, thread):
     )
 
     persona = "You're an executor. I need you to calculate the final result based on some conditions, objectives, and the provided steps. Follow ONLY the instructions and do not deviate"
-    response_messages = generate_from_code_assistant(
+    response_messages = await agenerate_from_code_assistant(
         persona, content, assistant, thread
     )
 
