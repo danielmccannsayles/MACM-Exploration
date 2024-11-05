@@ -21,13 +21,13 @@ class AsyncLogger:
         """Add message(s) to existing. Adds newline in between messages. Path can have multiple subdirs."""
         message = "\n".join([str(a) for a in args])
         if path in self._data:
-            self._data[path] += f"\n{message}"
+            self._data[path] += f">> \n{message}"  # Add >> to make messages stand out
         else:
-            self._data[path] = message
+            self._data[path] = f">> {message}"
 
     @classmethod
     async def flush_one(self, path):
-        """Output one message, asynchronously. Clear message"""
+        """**ASYNC** Output one message. Clear message"""
         if path in self._data:
             intermediate_dirs = os.path.dirname(path)
             if intermediate_dirs:

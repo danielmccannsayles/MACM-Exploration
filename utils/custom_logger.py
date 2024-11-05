@@ -35,7 +35,7 @@ class CustomLogger:
         file_path = f"{self._log_directory}{self._console_log}.md"
 
         with open(file_path, "a") as f:
-            f.write(f"{get_current_time()}: {message}\n")
+            f.write(f">>>{get_current_time()}: {message}\n")
 
     @classmethod
     def update_path(self, file_path):
